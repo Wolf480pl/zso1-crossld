@@ -12,8 +12,8 @@ extern uint32_t crossld_call64_in_fake_ptr;
 
 typedef void (*crossld_jump32_t)(void *stack, void *func);
 
-int crossld_call64(void *got1, size_t got_idx, void *args) {
-    printf("%zx %zu %zx\n", got1, got_idx, args);
+int crossld_call64(void *args) {
+    printf("%zx\n", args);
     return 42;
 }
 

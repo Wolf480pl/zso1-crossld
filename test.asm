@@ -21,12 +21,19 @@ test32:
     push ebp
     mov ebp, esp
 
+    push 480
+
     mov eax, [crossld_call64_in_fake_ptr]
     call eax
 
     mov ecx, str_fail 
     cmp eax, 42
     jne .endif
+
+    pop eax
+    cmp eax, 480
+    jne .endif
+
     mov ecx, str_ok
 .endif:
     mov ebx, 1

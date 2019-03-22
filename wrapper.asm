@@ -1,6 +1,6 @@
 global crossld_call64_in_fake
-global crossld_call64_in
-global crossld_jump32
+;global crossld_call64_in
+;global crossld_jump32
 global crossld_jump32_offset
 global crossld_hunks
 global crossld_hunks_len
@@ -12,8 +12,6 @@ section .text
 [bits 32]
 crossld_hunks:
 crossld_call64_in_fake:
-    push 0
-    push 0x55555555
 crossld_call64_in:
     push ebp
     mov ebp, esp
@@ -21,10 +19,8 @@ crossld_call64_in:
     push edi
     push esi
 
-    mov edi, [ebp+4]  ; got[1]
-    mov esi, [ebp+8]  ; got entry number
-           ; [ebp+12] ; return address
-    lea edx, [ebp+16] ; original args
+           ; [ebp+4] ; return address
+    lea edi, [ebp+8] ; original args
 
     push 0x33
 ;    nop
@@ -36,6 +32,18 @@ crossld_call64_in:
     add dword [esp], crossld_call64_mid - $
     retf
 
+[bits 64]
+
+crossld_call64_mid:
+    mov rax, crossld_call64
+    call rax
+;    push crossld_call64_out ; yeah, it pushes 8 bytes, even though we want 4
+    lea r10, [rel crossld_call64_out]
+    push r10                ; yeah, it pushes 8 bytes, even though we want 4
+    mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
+    retf
+
+[bits 32]
 crossld_call64_out:
     sub ebp,12
     mov esp, ebp
@@ -43,7 +51,6 @@ crossld_call64_out:
     pop edi
     pop ebx
     pop ebp
-    add esp, 8
     ret
 
 crossld_jump32_out:
@@ -62,15 +69,6 @@ crossld_jump32:
     mov [rsp], eax
     retf
 crossld_jump32_offset: equ crossld_jump32 - crossld_hunks
-
-crossld_call64_mid:
-    mov rax, crossld_call64
-    call rax
-;    push crossld_call64_out ; yeah, it pushes 8 bytes, even though we want 4
-    lea r10, [rel crossld_call64_out]
-    push r10                ; yeah, it pushes 8 bytes, even though we want 4
-    mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
-    retf
 
 align 8
 crossld_load_edi:
