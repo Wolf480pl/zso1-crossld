@@ -61,10 +61,12 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
     printf("copying %zd bytes\n", crossld_hunks_len);
 
     memcpy(code, &crossld_hunks, crossld_hunks_len);
+    void* const common_hunks = code;
+    code += crossld_hunks_len;
 
     printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n", crossld_jump32_offset, crossld_call64_dst_addr_offset, crossld_call64_out_addr_offset);
 
-    crossld_jump32_t jump32 = (crossld_jump32_t) (code + crossld_jump32_offset);
+    crossld_jump32_t jump32 = (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
 
 #if 0
     void* funptr = funcs[0].code;
@@ -78,7 +80,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
     *call64_out = call64_out_fun;
     void* trampoline = code;
 #else
-    void* trampoline = write_trampoline(&code, code, &funcs[0]);
+    void* trampoline = write_trampoline(&code, common_hunks, &funcs[0]);
 #endif
 
     if (mprotect(code_start, code_size, PROT_READ|PROT_EXEC) < 0) {

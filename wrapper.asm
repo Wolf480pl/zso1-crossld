@@ -15,7 +15,6 @@ dummy:
 section .text
 
 [bits 32]
-crossld_hunks:
 crossld_call64_trampoline:
     push ebp
     mov ebp, esp
@@ -61,6 +60,7 @@ crossld_call64_trampoline_len:
     dq $ - crossld_call64_trampoline
 
 [bits 32]
+crossld_hunks:
 crossld_call64_out:
     sub ebp,12
     mov esp, ebp
