@@ -3,6 +3,8 @@ global crossld_call64_in_fake_ptr
 
 section .rodata
 
+str_here:
+    db 'Here',10
 str_ok:
     db 'OK!!',10
 str_fail:
@@ -18,6 +20,12 @@ section .text
 test32:
     push ebp
     mov ebp, esp
+
+    mov ebx, 1
+    mov ecx, str_here
+    mov edx, 5
+    mov eax, 4
+    int 0x80
 
     push 480
 
