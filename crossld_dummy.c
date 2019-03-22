@@ -95,8 +95,9 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
     printf("patching at: %zx replacing %x with %x\n", addr_ptr, *addr_ptr, (uint32_t) hunk_ptr);
     *addr_ptr = (uint32_t) hunk_ptr;
 #endif
-    printf("putting: %x as hunk ptr\n", (uint32_t) hunk_ptr);
+    printf("putting: %x as trampoline ptr\n", (uint32_t) hunk_ptr);
     crossld_call64_in_fake_ptr = (uint32_t) hunk_ptr;
+    puts("jumping");
     jump32(stack, start);
 }
 
