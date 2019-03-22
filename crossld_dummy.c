@@ -7,7 +7,7 @@
 
 extern char crossld_hunks;
 extern char crossld_jump32_offset;
-extern char crossld_call64_dst_mov_offset;
+extern size_t crossld_call64_dst_mov_offset;
 extern size_t crossld_hunks_len;
 extern uint32_t crossld_call64_in_fake_ptr;
 
@@ -34,14 +34,11 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
 
     memcpy(code, &crossld_hunks, crossld_hunks_len);
 
-    const size_t jump32_offset = (size_t) &crossld_jump32_offset;
-    const size_t call64_dst_offset = (size_t) &crossld_call64_dst_mov_offset;
-
-    printf("jump32 offset: %zd dst offset: %zd\n", jump32_offset, call64_dst_offset);
+    printf("jump32 offset: %zd dst offset: %zd\n", crossld_jump32_offset, crossld_call64_dst_mov_offset);
 
     void* funptr = funcs[0].code;
-    crossld_jump32_t jump32 = (crossld_jump32_t) (code + jump32_offset);
-    void** call64_dst = (void**) (code + call64_dst_offset);
+    crossld_jump32_t jump32 = (crossld_jump32_t) (code + crossld_jump32_offset);
+    void** call64_dst = (void**) (code + crossld_call64_dst_mov_offset);
 
     printf("putting %zx as dst address at %zx\n", funptr, call64_dst);
     *call64_dst = funptr;

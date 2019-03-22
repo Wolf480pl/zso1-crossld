@@ -49,7 +49,7 @@ crossld_call64_dst_mov:
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
 
-crossld_call64_dst_mov_offset: equ crossld_call64_dst_mov + 2 - crossld_call64_trampoline
+crossld_call64_dst_mov_offset: dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline
 
 crossld_call64_trampoline_len:
     dq $ - crossld_call64_trampoline
@@ -79,7 +79,7 @@ crossld_jump32:
     lea rax, [rel crossld_jump32_out]
     mov [rsp], eax
     retf
-crossld_jump32_offset: equ crossld_jump32 - crossld_hunks
+crossld_jump32_offset: dq crossld_jump32 - crossld_hunks
 
 align 8
 crossld_load_edi:
@@ -165,5 +165,6 @@ crossld_push:
     lea rsi, [rbp+0x55]
     std
     rep movsb
+
 crossld_hunks_len:
     dq $ - crossld_hunks
