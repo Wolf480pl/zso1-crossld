@@ -1,4 +1,3 @@
-global crossld_call64_in_fake
 global crossld_call64_dst_mov_offset
 ;global crossld_jump32
 global crossld_jump32_offset
@@ -14,7 +13,6 @@ section .text
 
 [bits 32]
 crossld_hunks:
-crossld_call64_in_fake:
 crossld_call64_trampoline:
     push ebp
     mov ebp, esp
@@ -49,7 +47,10 @@ crossld_call64_dst_mov:
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
 
-crossld_call64_dst_mov_offset: dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline
+crossld_call64_dst_addr_offset:
+    dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline
+crossld_call64_out_addr_offset:
+    dq crossld_call64_out_mov + 2 - crossld_call64_trampoline
 
 crossld_call64_trampoline_len:
     dq $ - crossld_call64_trampoline
@@ -79,7 +80,8 @@ crossld_jump32:
     lea rax, [rel crossld_jump32_out]
     mov [rsp], eax
     retf
-crossld_jump32_offset: dq crossld_jump32 - crossld_hunks
+crossld_jump32_offset:
+    dq crossld_jump32 - crossld_hunks
 
 align 8
 crossld_load_edi:

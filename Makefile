@@ -21,4 +21,4 @@ test_so: test.o test_main.o crossld_dummy.so
 	LD_RUN_PATH=`pwd` gcc -no-pie -o $@ $^
 
 clean:
-	rm -f *.o test
+	rm -f *.o *.so test

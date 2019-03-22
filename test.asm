@@ -1,8 +1,6 @@
 global test32
 global crossld_call64_in_fake_ptr
 
-extern crossld_call64_in_fake
-
 section .rodata
 
 str_ok:
@@ -12,7 +10,7 @@ str_fail:
 
 section .data
 crossld_call64_in_fake_ptr:
-    dq crossld_call64_in_fake
+    dq 0
 
 section .text
 
