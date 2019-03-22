@@ -15,6 +15,26 @@ section .rodata
 dummy:
     db 0
 
+align 8
+crossld_call64_trampoline_len1:
+    dq crossld_call64_trampoline_mid - crossld_call64_trampoline_start
+crossld_call64_trampoline_len2:
+    dq crossld_call64_trampoline_end - crossld_call64_trampoline_mid
+
+crossld_call64_dst_addr_mid_offset:
+    dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline_mid
+crossld_call64_out_addr_mid_offset:
+    dq crossld_call64_out_mov + 2 - crossld_call64_trampoline_mid
+
+crossld_call64_out_offset:
+    dq crossld_call64_out - crossld_hunks
+
+crossld_hunks_len:
+    dq crossld_hunks_end - crossld_hunks
+
+crossld_jump32_offset:
+    dq crossld_jump32 - crossld_hunks
+
 section .text
 
 [bits 32]
@@ -49,17 +69,6 @@ crossld_call64_out_mov:
     retf
 crossld_call64_trampoline_end:
 
-
-crossld_call64_trampoline_len1:
-    dq crossld_call64_trampoline_mid - crossld_call64_trampoline_start
-crossld_call64_trampoline_len2:
-    dq crossld_call64_trampoline_end - crossld_call64_trampoline_mid
-
-crossld_call64_dst_addr_mid_offset:
-    dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline_mid
-crossld_call64_out_addr_mid_offset:
-    dq crossld_call64_out_mov + 2 - crossld_call64_trampoline_mid
-
 align 8
 [bits 32]
 crossld_hunks:
@@ -71,8 +80,6 @@ crossld_call64_out:
     pop ebx
     pop ebp
     ret
-crossld_call64_out_offset:
-    dq crossld_call64_out - crossld_hunks
 
 crossld_jump32_out:
     push 0x2b
@@ -89,13 +96,9 @@ crossld_jump32:
     lea rax, [rel crossld_jump32_out]
     mov [rsp], eax
     retf
-crossld_jump32_offset:
-    dq crossld_jump32 - crossld_hunks
 
 align 8
 crossld_hunks_end:
-crossld_hunks_len:
-    dq crossld_hunks_end - crossld_hunks
 
 align 8
 crossld_hunk_array:
