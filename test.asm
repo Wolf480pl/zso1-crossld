@@ -27,6 +27,7 @@ test32:
     mov eax, 4
     int 0x80
 
+    push 120
     push 480
 
     mov eax, [crossld_call64_in_fake_ptr]

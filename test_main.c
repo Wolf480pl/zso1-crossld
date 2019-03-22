@@ -13,21 +13,40 @@ int myfun(int x) {
     return 42;
 }
 
+int myfun2(int x, int y) {
+    printf("i have %d and %d\n", x, y);
+    return 42;
+}
+
 static const enum type myfun_args[] = {
     TYPE_INT,
 };
 
-static const struct function myfun_s = {
-    .name = "myfun",
-    .args = myfun_args,
-    .nargs = 1,
-    .result = TYPE_INT,
-    .code = myfun
+static const enum type myfun2_args[] = {
+    TYPE_INT,
+    TYPE_INT,
+};
+
+static const struct function funs[] = {
+    {
+        .name = "myfun",
+        .args = myfun_args,
+        .nargs = 1,
+        .result = TYPE_INT,
+        .code = myfun
+    },
+    {
+        .name = "myfun2",
+        .args = myfun2_args,
+        .nargs = 2,
+        .result = TYPE_INT,
+        .code = myfun2
+    }
 };
 
 int main() {
     puts("hi");
 
-    crossld_start_fun(test32, &myfun_s, 1);
+    crossld_start_fun(test32, funs, 2);
     return 0;
 }

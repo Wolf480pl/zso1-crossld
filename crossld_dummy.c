@@ -41,9 +41,19 @@ void* write_trampoline(char **code_p, char *common_hunks, const struct function 
 
     printf("starting injection at %zx\n", *code_p);
     struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
-    *argconv = crossld_hunk_array[0];
-    argconv->depth = 8;
-    ++argconv;
+
+    size_t depth = 8;
+    for (size_t i = 0; i < func->nargs; ++i) {
+        int is64 = 0;
+        if (i < 6) {
+            *argconv = crossld_hunk_array[i * 2 + is64];
+            argconv->depth = depth;
+            ++argconv;
+        } else {
+            //TODO
+        }
+        depth += is64 ? 8 : 4;
+    }
     *code_p = (char*) argconv;
     printf("finished injection at %zx\n", *code_p);
 
@@ -92,7 +102,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
 
     crossld_jump32_t jump32 = (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
 
-    void* trampoline = write_trampoline(&code, common_hunks, &funcs[0]);
+    void* trampoline = write_trampoline(&code, common_hunks, &funcs[1]);
 
     if (mprotect(code_start, code_size, PROT_READ|PROT_EXEC) < 0) {
         perror("mprotect");
