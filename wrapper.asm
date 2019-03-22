@@ -30,14 +30,7 @@ crossld_call64_trampoline_start:
     push edi
     push esi
 
-           ; [ebp+4] ; return address
-;    lea edi, [ebp+8] ; original args
-
     push 0x33
-;    nop
-;    nop
-;    nop
-;    push crossld_call64_mid
     call .eip
 .eip:
     add dword [esp], crossld_call64_mid - $
@@ -48,19 +41,18 @@ crossld_call64_trampoline_start:
 align 8
 crossld_call64_trampoline_mid:
 crossld_call64_mid:
-;    mov edi, [ebp+8]
+
 crossld_call64_dst_mov:
     mov rax, dummy ; callee goes here
-;    mov rax, crossld_call64
     call rax
-;    push crossld_call64_out ; yeah, it pushes 8 bytes, even though we want 4
-;    lea r10, [rel crossld_call64_out]
 crossld_call64_out_mov:
-    mov r10, dummy
+    mov r10, dummy ; crossld_call64_out goes here
+
     push r10                ; yeah, it pushes 8 bytes, even though we want 4
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
 crossld_call64_trampoline_end:
+
 
 crossld_call64_trampoline_len:
     dq crossld_call64_trampoline_end - crossld_call64_trampoline

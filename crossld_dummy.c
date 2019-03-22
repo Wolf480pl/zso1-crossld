@@ -11,16 +11,12 @@ struct arg_hunk {
 };
 
 extern char crossld_hunks;
-extern char crossld_call64_trampoline;
 extern char crossld_call64_trampoline_start;
 extern char crossld_call64_trampoline_mid;
 extern size_t crossld_jump32_offset;
-extern size_t crossld_call64_dst_addr_offset;
-extern size_t crossld_call64_out_addr_offset;
 extern size_t crossld_call64_dst_addr_mid_offset;
 extern size_t crossld_call64_out_addr_mid_offset;
 extern size_t crossld_hunks_len;
-extern size_t crossld_call64_trampoline_len;
 extern size_t crossld_call64_trampoline_len1;
 extern size_t crossld_call64_trampoline_len2;
 extern size_t crossld_call64_out_offset;
@@ -41,14 +37,8 @@ void trampoline_cat(char **code_p, const void *src, size_t len) {
 void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
     char* const code = *code_p;
 
-#if 0
-    printf("copying %zd bytes\n", crossld_call64_trampoline_len);
-    memcpy(code, &crossld_call64_trampoline, crossld_call64_trampoline_len);
-    *code_p += crossld_call64_trampoline_len;
-#else
     trampoline_cat(code_p, &crossld_call64_trampoline_start, crossld_call64_trampoline_len1);
 
-#if 1
     printf("starting injection at %zx\n", *code_p);
     struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
     *argconv = crossld_hunk_array[0];
@@ -56,13 +46,11 @@ void* write_trampoline(char **code_p, char *common_hunks, const struct function 
     ++argconv;
     *code_p = (char*) argconv;
     printf("finished injection at %zx\n", *code_p);
-#endif
 
     void* mid = *code_p;
 
     trampoline_cat(code_p, &crossld_call64_trampoline_mid, crossld_call64_trampoline_len2);
     printf("finished trampoline at %zx\n", *code_p);
-#endif
 
     void* const funptr = func->code;
 
@@ -100,24 +88,11 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
     void* const common_hunks = code;
     code += crossld_hunks_len;
 
-    printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n", crossld_jump32_offset, crossld_call64_dst_addr_offset, crossld_call64_out_addr_offset);
+    printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n", crossld_jump32_offset, crossld_call64_dst_addr_mid_offset, crossld_call64_out_addr_mid_offset);
 
     crossld_jump32_t jump32 = (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
 
-#if 0
-    void* funptr = funcs[0].code;
-    void** call64_dst = (void**) (code + crossld_call64_dst_addr_offset);
-    void** call64_out = (void**) (code + crossld_call64_out_addr_offset);
-    void** call64_out_fun = (void**) (code + crossld_call64_out_offset);
-
-    printf("putting %zx as dst address at %zx\n", funptr, call64_dst);
-    *call64_dst = funptr;
-    printf("putting %zx as dst address at %zx\n", call64_out_fun, call64_out);
-    *call64_out = call64_out_fun;
-    void* trampoline = code;
-#else
     void* trampoline = write_trampoline(&code, common_hunks, &funcs[0]);
-#endif
 
     if (mprotect(code_start, code_size, PROT_READ|PROT_EXEC) < 0) {
         perror("mprotect");
