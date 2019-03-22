@@ -1,9 +1,12 @@
-global crossld_call64_dst_mov_offset
+global crossld_call64_dst_addr_offset
+global crossld_call64_out_addr_offset
+global crossld_call64_out_offset
 ;global crossld_jump32
 global crossld_jump32_offset
 global crossld_hunks
 global crossld_hunks_len
-
+global crossld_call64_trampoline
+global crossld_call64_trampoline_len
 
 section .rodata
 dummy:
@@ -38,11 +41,13 @@ crossld_call64_trampoline:
 crossld_call64_mid:
     mov edi, [ebp+8]
 crossld_call64_dst_mov:
-    mov rax, dummy
+    mov rax, dummy ; callee goes here
 ;    mov rax, crossld_call64
     call rax
 ;    push crossld_call64_out ; yeah, it pushes 8 bytes, even though we want 4
-    lea r10, [rel crossld_call64_out]
+;    lea r10, [rel crossld_call64_out]
+crossld_call64_out_mov:
+    mov r10, dummy
     push r10                ; yeah, it pushes 8 bytes, even though we want 4
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
@@ -64,6 +69,8 @@ crossld_call64_out:
     pop ebx
     pop ebp
     ret
+crossld_call64_out_offset:
+    dq crossld_call64_out - crossld_hunks
 
 crossld_jump32_out:
     push 0x2b
