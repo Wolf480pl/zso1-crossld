@@ -1,4 +1,5 @@
 global test32
+global crossld_call64_in_fake_ptr
 
 extern crossld_call64_in_fake
 
@@ -9,6 +10,10 @@ str_ok:
 str_fail:
     db 'FAIL',10
 
+section .data
+crossld_call64_in_fake_ptr:
+    dq crossld_call64_in_fake
+
 section .text
 
 [bits 32]
@@ -16,7 +21,8 @@ test32:
     push ebp
     mov ebp, esp
 
-    call crossld_call64_in_fake
+    mov eax, [crossld_call64_in_fake_ptr]
+    call eax
 
     mov ecx, str_fail 
     cmp eax, 42

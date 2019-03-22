@@ -88,3 +88,11 @@ push32_B:
 
 push64:
     push qword [ebp+0x55]
+
+cpy:
+    mov cl, 42
+    lea rdi, [esp-1]
+    sub rsp, rcx
+    lea rsi, [rbp+0x55]
+    std
+    rep movsb
