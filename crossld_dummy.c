@@ -5,33 +5,69 @@
 
 #include "crossld.h"
 
+struct arg_hunk {
+    unsigned char insn[7];
+    unsigned char depth;
+};
+
 extern char crossld_hunks;
 extern char crossld_call64_trampoline;
+extern char crossld_call64_trampoline_start;
+extern char crossld_call64_trampoline_mid;
 extern size_t crossld_jump32_offset;
 extern size_t crossld_call64_dst_addr_offset;
 extern size_t crossld_call64_out_addr_offset;
+extern size_t crossld_call64_dst_addr_mid_offset;
+extern size_t crossld_call64_out_addr_mid_offset;
 extern size_t crossld_hunks_len;
 extern size_t crossld_call64_trampoline_len;
+extern size_t crossld_call64_trampoline_len1;
+extern size_t crossld_call64_trampoline_len2;
 extern size_t crossld_call64_out_offset;
 extern uint32_t crossld_call64_in_fake_ptr;
+extern struct arg_hunk crossld_hunk_array[12];
 
 typedef void (*crossld_jump32_t)(void *stack, void *func);
 
 static const size_t stack_size = 4096;
 static const size_t code_size = 4096;
 
+void trampoline_cat(char **code_p, const void *src, size_t len) {
+    printf("copying %zd bytes\n", len);
+    memcpy(*code_p, src, len);
+    *code_p += len;
+}
+
 void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
     char* const code = *code_p;
 
+#if 0
     printf("copying %zd bytes\n", crossld_call64_trampoline_len);
     memcpy(code, &crossld_call64_trampoline, crossld_call64_trampoline_len);
-
     *code_p += crossld_call64_trampoline_len;
+#else
+    trampoline_cat(code_p, &crossld_call64_trampoline_start, crossld_call64_trampoline_len1);
+
+#if 1
+    printf("starting injection at %zx\n", *code_p);
+    struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
+    *argconv = crossld_hunk_array[0];
+    argconv->depth = 8;
+    ++argconv;
+    *code_p = (char*) argconv;
+    printf("finished injection at %zx\n", *code_p);
+#endif
+
+    void* mid = *code_p;
+
+    trampoline_cat(code_p, &crossld_call64_trampoline_mid, crossld_call64_trampoline_len2);
+    printf("finished trampoline at %zx\n", *code_p);
+#endif
 
     void* const funptr = func->code;
 
-    void** const dst_addr_field = (void**) (code + crossld_call64_dst_addr_offset);
-    void** const out_addr_field = (void**) (code + crossld_call64_out_addr_offset);
+    void** const dst_addr_field = (void**) (mid + crossld_call64_dst_addr_mid_offset);
+    void** const out_addr_field = (void**) (mid + crossld_call64_out_addr_mid_offset);
     void** const out_hunk = (void**) (common_hunks + crossld_call64_out_offset);
 
     printf("putting %zx as dst address at %zx\n", funptr, dst_addr_field);

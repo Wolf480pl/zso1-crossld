@@ -1,12 +1,19 @@
 global crossld_call64_dst_addr_offset
 global crossld_call64_out_addr_offset
+global crossld_call64_dst_addr_mid_offset
+global crossld_call64_out_addr_mid_offset
 global crossld_call64_out_offset
 ;global crossld_jump32
 global crossld_jump32_offset
 global crossld_hunks
 global crossld_hunks_len
 global crossld_call64_trampoline
+global crossld_call64_trampoline_start
+global crossld_call64_trampoline_mid
 global crossld_call64_trampoline_len
+global crossld_call64_trampoline_len1
+global crossld_call64_trampoline_len2
+global crossld_hunk_array
 
 section .rodata
 dummy:
@@ -16,6 +23,7 @@ section .text
 
 [bits 32]
 crossld_call64_trampoline:
+crossld_call64_trampoline_start:
     push ebp
     mov ebp, esp
     push ebx
@@ -37,8 +45,10 @@ crossld_call64_trampoline:
 
 [bits 64]
 
+align 8
+crossld_call64_trampoline_mid:
 crossld_call64_mid:
-    mov edi, [ebp+8]
+;    mov edi, [ebp+8]
 crossld_call64_dst_mov:
     mov rax, dummy ; callee goes here
 ;    mov rax, crossld_call64
@@ -50,15 +60,26 @@ crossld_call64_out_mov:
     push r10                ; yeah, it pushes 8 bytes, even though we want 4
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
+crossld_call64_trampoline_end:
+
+crossld_call64_trampoline_len:
+    dq crossld_call64_trampoline_end - crossld_call64_trampoline
+crossld_call64_trampoline_len1:
+    dq crossld_call64_trampoline_mid - crossld_call64_trampoline_start
+crossld_call64_trampoline_len2:
+    dq crossld_call64_trampoline_end - crossld_call64_trampoline_mid
 
 crossld_call64_dst_addr_offset:
     dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline
 crossld_call64_out_addr_offset:
     dq crossld_call64_out_mov + 2 - crossld_call64_trampoline
 
-crossld_call64_trampoline_len:
-    dq $ - crossld_call64_trampoline
+crossld_call64_dst_addr_mid_offset:
+    dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline_mid
+crossld_call64_out_addr_mid_offset:
+    dq crossld_call64_out_mov + 2 - crossld_call64_trampoline_mid
 
+align 8
 [bits 32]
 crossld_hunks:
 crossld_call64_out:
@@ -91,6 +112,11 @@ crossld_jump32_offset:
     dq crossld_jump32 - crossld_hunks
 
 align 8
+crossld_hunks_len:
+    dq $ - crossld_hunks
+
+align 8
+crossld_hunk_array:
 crossld_load_edi:
     nop
     nop
@@ -175,5 +201,3 @@ crossld_push:
     std
     rep movsb
 
-crossld_hunks_len:
-    dq $ - crossld_hunks
