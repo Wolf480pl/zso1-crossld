@@ -1,5 +1,3 @@
-global crossld_call64_dst_addr_offset
-global crossld_call64_out_addr_offset
 global crossld_call64_dst_addr_mid_offset
 global crossld_call64_out_addr_mid_offset
 global crossld_call64_out_offset
@@ -7,10 +5,8 @@ global crossld_call64_out_offset
 global crossld_jump32_offset
 global crossld_hunks
 global crossld_hunks_len
-global crossld_call64_trampoline
 global crossld_call64_trampoline_start
 global crossld_call64_trampoline_mid
-global crossld_call64_trampoline_len
 global crossld_call64_trampoline_len1
 global crossld_call64_trampoline_len2
 global crossld_hunk_array
@@ -54,17 +50,10 @@ crossld_call64_out_mov:
 crossld_call64_trampoline_end:
 
 
-crossld_call64_trampoline_len:
-    dq crossld_call64_trampoline_end - crossld_call64_trampoline
 crossld_call64_trampoline_len1:
     dq crossld_call64_trampoline_mid - crossld_call64_trampoline_start
 crossld_call64_trampoline_len2:
     dq crossld_call64_trampoline_end - crossld_call64_trampoline_mid
-
-crossld_call64_dst_addr_offset:
-    dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline
-crossld_call64_out_addr_offset:
-    dq crossld_call64_out_mov + 2 - crossld_call64_trampoline
 
 crossld_call64_dst_addr_mid_offset:
     dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline_mid
@@ -104,8 +93,9 @@ crossld_jump32_offset:
     dq crossld_jump32 - crossld_hunks
 
 align 8
+crossld_hunks_end:
 crossld_hunks_len:
-    dq $ - crossld_hunks
+    dq crossld_hunks_end - crossld_hunks
 
 align 8
 crossld_hunk_array:
