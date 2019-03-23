@@ -1,4 +1,4 @@
-CFLAGS := -O3
+CFLAGS := -O3 -g
 
 all: test test_so
 
@@ -13,13 +13,13 @@ wrapper.o: wrapper.asm
 test.o: test.asm
 	nasm -f elf64 -o $@ $<
 
-crossld_dummy.so: wrapper.o crossld_dummy.o
+crossld.so: wrapper.o crossld.o
 	gcc -shared -fPIC -o $@ $^
 
-test: test.o test_main.o wrapper.o crossld_dummy.o
+test: test.o test_main.o wrapper.o crossld.o
 	gcc $(CFLAGS) -no-pie -o $@ $^
 
-test_so: test.o test_main.o crossld_dummy.so
+test_so: test.o test_main.o crossld.so
 	LD_RUN_PATH=`pwd` gcc -no-pie -o $@ $^
 
 clean:
