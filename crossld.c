@@ -99,9 +99,12 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
 
     void* common_hunks = trampoline_cat(&code, &crossld_hunks, crossld_hunks_len);
 
-    printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n", crossld_jump32_offset, crossld_call64_dst_addr_mid_offset, crossld_call64_out_addr_mid_offset);
+    printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n",
+            crossld_jump32_offset, crossld_call64_dst_addr_mid_offset,
+            crossld_call64_out_addr_mid_offset);
 
-    crossld_jump32_t jump32 = (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
+    crossld_jump32_t jump32 =
+            (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
 
     void* trampoline = write_trampoline(&code, common_hunks, &funcs[1]);
 
