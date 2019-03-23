@@ -67,9 +67,10 @@ crossld_call64_out_mov:
     push r10                ; yeah, it pushes 8 bytes, even though we want 4
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
-crossld_call64_trampoline_end:
 
 align 8
+crossld_call64_trampoline_end:
+
 [bits 32]
 crossld_hunks:
 crossld_call64_out:
