@@ -29,10 +29,12 @@ typedef void (*crossld_jump32_t)(void *stack, void *func);
 static const size_t stack_size = 4096;
 static const size_t code_size = 4096;
 
-static void trampoline_cat(char **code_p, const void *src, size_t len) {
+static void* trampoline_cat(char **code_p, const void *src, size_t len) {
+    void* start = *code_p;
     printf("copying %zd bytes\n", len);
     memcpy(*code_p, src, len);
     *code_p += len;
+    return start;
 }
 
 static void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
@@ -95,11 +97,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
         return 1;
     }
 
-    printf("copying %zd bytes\n", crossld_hunks_len);
-
-    memcpy(code, &crossld_hunks, crossld_hunks_len);
-    void* const common_hunks = code;
-    code += crossld_hunks_len;
+    void* common_hunks = trampoline_cat(&code, &crossld_hunks, crossld_hunks_len);
 
     printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n", crossld_jump32_offset, crossld_call64_dst_addr_mid_offset, crossld_call64_out_addr_mid_offset);
 
