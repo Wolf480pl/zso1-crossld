@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include "crossld.h"
 
@@ -73,6 +74,8 @@ void* write_trampoline(char **code_p, char *common_hunks, const struct function 
 
     printf("putting %zx as out address at %zx\n", out_hunk, out_addr_field);
     *out_addr_field = out_hunk;
+
+    //write(2, code, *code_p - code);
 
     return code;
 }
