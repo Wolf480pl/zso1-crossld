@@ -29,13 +29,13 @@ typedef void (*crossld_jump32_t)(void *stack, void *func);
 static const size_t stack_size = 4096;
 static const size_t code_size = 4096;
 
-void trampoline_cat(char **code_p, const void *src, size_t len) {
+static void trampoline_cat(char **code_p, const void *src, size_t len) {
     printf("copying %zd bytes\n", len);
     memcpy(*code_p, src, len);
     *code_p += len;
 }
 
-void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
+static void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
     char* const code = *code_p;
 
     trampoline_cat(code_p, &crossld_call64_trampoline_start, crossld_call64_trampoline_len1);
@@ -113,12 +113,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
     }
 
     size_t hunk_ptr = (size_t) trampoline;
-#if 0
-    uint32_t* addr_ptr = (uint32_t*) (start + 4);
 
-    printf("patching at: %zx replacing %x with %x\n", addr_ptr, *addr_ptr, (uint32_t) hunk_ptr);
-    *addr_ptr = (uint32_t) hunk_ptr;
-#endif
     printf("putting: %x as trampoline ptr\n", (uint32_t) hunk_ptr);
     crossld_call64_in_fake_ptr = (uint32_t) hunk_ptr;
     puts("jumping");
