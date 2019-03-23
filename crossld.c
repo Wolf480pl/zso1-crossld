@@ -82,20 +82,16 @@ static void* write_trampoline(char **code_p, char *common_hunks, const struct fu
     return code;
 }
 
-int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
-    void *stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
-    if (stack == MAP_FAILED) {
-        perror("mmap");
-        return 1;
-    }
-    stack += stack_size - 4;
+static void* generate_trampolines(void **res_trampolines,
+                                  const struct function *funcs, int nfuncs) {
 
-    char *code = mmap(NULL, code_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
-    void* const code_start = code;
+    char *code = mmap(NULL, code_size, PROT_READ|PROT_WRITE,
+                      MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
     if (code == MAP_FAILED) {
         perror("mmap");
-        return 1;
+        return NULL;
     }
+    void* const code_start = code;
 
     void* common_hunks = trampoline_cat(&code, &crossld_hunks, crossld_hunks_len);
 
@@ -103,22 +99,52 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
             crossld_jump32_offset, crossld_call64_dst_addr_mid_offset,
             crossld_call64_out_addr_mid_offset);
 
-    crossld_jump32_t jump32 =
-            (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
-
-    void* trampoline = write_trampoline(&code, common_hunks, &funcs[1]);
+    for (size_t i = 0; i < nfuncs; ++i) {
+        res_trampolines[i] = write_trampoline(&code, common_hunks, &funcs[i]);
+    }
 
     if (mprotect(code_start, code_size, PROT_READ|PROT_EXEC) < 0) {
         perror("mprotect");
-        return 1;
+        return NULL;
     }
 
-    size_t hunk_ptr = (size_t) trampoline;
+    return common_hunks;
+}
+
+static int crossld_enter(void *start, void *common_hunks) {
+    void *stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE,
+                       MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
+
+    crossld_jump32_t jump32 =
+            (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
+
+    if (stack == MAP_FAILED) {
+        perror("mmap");
+        return -1;
+    }
+    stack += stack_size - 4;
+
+    puts("jumping");
+    jump32(stack, start);
+    // TODO _exit
+    return 0;
+}
+
+int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
+
+    void* trampolines[nfuncs];
+
+    void* common_hunks = generate_trampolines(trampolines, funcs, nfuncs);
+    if (common_hunks == NULL) {
+        return -1;
+    }
+
+    size_t hunk_ptr = (size_t) trampolines[1];
 
     printf("putting: %x as trampoline ptr\n", (uint32_t) hunk_ptr);
     crossld_call64_in_fake_ptr = (uint32_t) hunk_ptr;
-    puts("jumping");
-    jump32(stack, start);
+
+    return crossld_enter(start, common_hunks);
 }
 
 int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
