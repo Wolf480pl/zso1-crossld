@@ -18,6 +18,10 @@ int myfun2(int x, int y) {
     return 42;
 }
 
+void print(char *str) {
+    puts(str);
+}
+
 static const enum type myfun_args[] = {
     TYPE_INT,
 };
@@ -25,6 +29,10 @@ static const enum type myfun_args[] = {
 static const enum type myfun2_args[] = {
     TYPE_INT,
     TYPE_INT,
+};
+
+static const enum type print_args[] = {
+    TYPE_PTR,
 };
 
 static const struct function funs[] = {
@@ -41,12 +49,21 @@ static const struct function funs[] = {
         .nargs = 2,
         .result = TYPE_INT,
         .code = myfun2
-    }
+    },
+    {
+        .name = "print",
+        .args = print_args,
+        .nargs = 1,
+        .result = TYPE_VOID,
+        .code = print
+    },
 };
 
 int main() {
     puts("hi");
 
-    crossld_start_fun(test32, funs, 2);
+    //crossld_start_fun(test32, funs, 2);
+    //crossld_start("testelf32", funs, 2);
+    crossld_start("hello-32", funs, 3);
     return 0;
 }

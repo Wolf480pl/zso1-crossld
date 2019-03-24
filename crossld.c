@@ -1,140 +1,24 @@
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <elf.h>
 
 #include "crossld.h"
+#include "trampolines.h"
 
-struct arg_hunk {
-    unsigned char insn[7];
-    unsigned char depth;
-};
+const size_t PAGE_SIZE = 4096;
 
-extern char crossld_hunks;
-extern char crossld_call64_trampoline_start;
-extern char crossld_call64_trampoline_mid;
-extern size_t crossld_jump32_offset;
-extern size_t crossld_call64_dst_addr_mid_offset;
-extern size_t crossld_call64_out_addr_mid_offset;
-extern size_t crossld_hunks_len;
-extern size_t crossld_call64_trampoline_len1;
-extern size_t crossld_call64_trampoline_len2;
-extern size_t crossld_call64_out_offset;
 extern uint32_t crossld_call64_in_fake_ptr;
-extern struct arg_hunk crossld_hunk_array[12];
-
-typedef void (*crossld_jump32_t)(void *stack, void *func);
-
-static const size_t stack_size = 4096;
-static const size_t code_size = 4096;
-
-static void* trampoline_cat(char **code_p, const void *src, size_t len) {
-    void* start = *code_p;
-    printf("copying %zd bytes\n", len);
-    memcpy(*code_p, src, len);
-    *code_p += len;
-    return start;
-}
-
-static void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
-    char* const code = *code_p;
-
-    trampoline_cat(code_p, &crossld_call64_trampoline_start, crossld_call64_trampoline_len1);
-
-    printf("starting injection at %zx\n", *code_p);
-    struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
-
-    size_t depth = 8;
-    for (size_t i = 0; i < func->nargs; ++i) {
-        int is64 = 0;
-        if (i < 6) {
-            *argconv = crossld_hunk_array[i * 2 + is64];
-            argconv->depth = depth;
-            ++argconv;
-        } else {
-            //TODO
-        }
-        depth += is64 ? 8 : 4;
-    }
-    *code_p = (char*) argconv;
-    printf("finished injection at %zx\n", *code_p);
-
-    void* mid = *code_p;
-
-    trampoline_cat(code_p, &crossld_call64_trampoline_mid, crossld_call64_trampoline_len2);
-    printf("finished trampoline at %zx\n", *code_p);
-
-    void* const funptr = func->code;
-
-    void** const dst_addr_field = (void**) (mid + crossld_call64_dst_addr_mid_offset);
-    void** const out_addr_field = (void**) (mid + crossld_call64_out_addr_mid_offset);
-    void** const out_hunk = (void**) (common_hunks + crossld_call64_out_offset);
-
-    printf("putting %zx as dst address at %zx\n", funptr, dst_addr_field);
-    *dst_addr_field = funptr;
-
-    printf("putting %zx as out address at %zx\n", out_hunk, out_addr_field);
-    *out_addr_field = out_hunk;
-
-    //write(2, code, *code_p - code);
-
-    return code;
-}
-
-static void* generate_trampolines(void **res_trampolines,
-                                  const struct function *funcs, int nfuncs) {
-
-    char *code = mmap(NULL, code_size, PROT_READ|PROT_WRITE,
-                      MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
-    if (code == MAP_FAILED) {
-        perror("mmap");
-        return NULL;
-    }
-    void* const code_start = code;
-
-    void* common_hunks = trampoline_cat(&code, &crossld_hunks, crossld_hunks_len);
-
-    printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n",
-            crossld_jump32_offset, crossld_call64_dst_addr_mid_offset,
-            crossld_call64_out_addr_mid_offset);
-
-    for (size_t i = 0; i < nfuncs; ++i) {
-        res_trampolines[i] = write_trampoline(&code, common_hunks, &funcs[i]);
-    }
-
-    if (mprotect(code_start, code_size, PROT_READ|PROT_EXEC) < 0) {
-        perror("mprotect");
-        return NULL;
-    }
-
-    return common_hunks;
-}
-
-static int crossld_enter(void *start, void *common_hunks) {
-    void *stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE,
-                       MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
-
-    crossld_jump32_t jump32 =
-            (crossld_jump32_t) (common_hunks + crossld_jump32_offset);
-
-    if (stack == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-    stack += stack_size - 4;
-
-    puts("jumping");
-    jump32(stack, start);
-    // TODO _exit
-    return 0;
-}
+extern void test32();
 
 int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
-
     void* trampolines[nfuncs];
 
-    void* common_hunks = generate_trampolines(trampolines, funcs, nfuncs);
+    void* common_hunks = crossld_generate_trampolines(trampolines, funcs, nfuncs);
     if (common_hunks == NULL) {
         return -1;
     }
@@ -147,7 +31,232 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs) {
     return crossld_enter(start, common_hunks);
 }
 
+const char valid_elf_ident[EI_NIDENT] = {
+    ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3,
+    ELFCLASS32,
+    ELFDATA2LSB,
+    EV_CURRENT,
+    ELFOSABI_SYSV,
+    0, // ABI version
+};
+
+static void *load_elf(const char *fname, void * const *trampolines,
+                      const struct function *funcs, int nfuncs) {
+
+    int fd = open(fname, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return NULL;
+    }
+
+    Elf32_Ehdr elfhdr;
+    if (pread(fd, &elfhdr, sizeof(elfhdr), 0) < 0) {
+        perror("pread");
+        return NULL;
+    }
+
+    if (memcmp(&elfhdr.e_ident, valid_elf_ident, sizeof(valid_elf_ident)) != 0) {
+        fprintf(stderr, "bad ELF header\n");
+        return NULL;
+    }
+
+    if (elfhdr.e_type != ET_EXEC && elfhdr.e_type != ET_DYN) {
+        fprintf(stderr, "bad ELF type - not ET_EXEC or ET_DYN");
+        return NULL;
+    }
+
+    if (elfhdr.e_machine != EM_386) {
+        fprintf(stderr, "bad ELF machine - not i386");
+        return NULL;
+    }
+
+    if (elfhdr.e_phoff == 0 || elfhdr.e_phnum == 0) {
+        fprintf(stderr, "no program headers in ELF");
+        return NULL;        
+    }
+
+    if (elfhdr.e_phnum == PN_XNUM) {
+        fprintf(stderr, "too many headers in ELF");
+        return NULL;                
+    }
+
+    if (elfhdr.e_phentsize != sizeof(Elf32_Phdr)) {
+        fprintf(stderr, "weird ELF program header size: %hu, expected %zu\n",
+                         elfhdr.e_phentsize, sizeof(Elf32_Phdr));
+        return NULL;                        
+    }
+
+    Elf32_Phdr phdrs[elfhdr.e_phnum];
+    if (pread(fd, phdrs, sizeof(phdrs), elfhdr.e_phoff) < 0) {
+        perror("pread");
+        return NULL;
+    }
+
+    uint32_t* crossld_call64_in_fake_ptr_ptr = &crossld_call64_in_fake_ptr;
+
+    for (size_t i = 0; i < elfhdr.e_phnum; ++i) {
+        printf("hdr %zu\n", i);
+        int prot = 0;
+        Elf32_Phdr* hdr = &phdrs[i];
+        switch (hdr->p_type) {
+        case PT_LOAD:
+            if (hdr->p_flags & PF_R) {
+                prot |= PROT_READ;
+            }
+            if (hdr->p_flags & PF_W) {
+                prot |= PROT_WRITE;
+            }
+            if (hdr->p_flags & PF_X) {
+                prot |= PROT_EXEC;
+            }
+            if (hdr->p_filesz > hdr->p_memsz) {
+                fprintf(stderr, "segment with filesize greater than memsize:"
+                                "%u > %u\n", hdr->p_filesz, hdr->p_memsz);
+                return NULL;
+            }
+            if (hdr->p_filesz < hdr->p_memsz) {
+                fprintf(stderr, "segment with trailing zeros (unimplemented,"
+                                " skipping):"
+                                "%u > %u\n", hdr->p_filesz, hdr->p_memsz);
+                continue;
+            }
+            printf("LOAD %zx %zx %zx %zx %zu\n", hdr->p_vaddr, hdr->p_memsz,
+                    hdr->p_offset, hdr->p_filesz, prot);
+            size_t page_offset = hdr->p_vaddr & (PAGE_SIZE - 1);
+            size_t vaddr = hdr->p_vaddr - page_offset;
+            size_t offset = hdr->p_offset - page_offset;
+            size_t size = hdr->p_filesz + page_offset;
+            size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+            printf("mmap %zx %zx %zx %zx %zu\n", vaddr, size,
+                    offset, size, prot);
+            void *addr = mmap((void*) vaddr, size, prot,
+                              MAP_PRIVATE | MAP_32BIT, fd, offset);
+            if (addr == MAP_FAILED) {
+                perror("mmap");
+                return NULL;
+            }
+            if ((size_t) addr != vaddr) {
+                printf("WARNING: mmap moved us to %zx\n", addr);
+            }
+            //TMPHACK
+            crossld_call64_in_fake_ptr_ptr = addr + page_offset;
+            break;
+
+        case PT_DYNAMIC: {
+            size_t dyncnt = hdr->p_filesz / sizeof(Elf32_Dyn);
+            Elf32_Dyn dyns[dyncnt];
+            if (pread(fd, &dyns, sizeof(dyns), hdr->p_offset) < 0) {
+                perror("pread dynamic");
+                return NULL;
+            }
+
+            char* strtab = NULL;
+            Elf32_Sym* symtab = NULL;
+            void* jmprel = NULL;
+            size_t pltrelsz = 0;
+
+            for (size_t j = 0; j < dyncnt; ++j) {
+                Elf32_Dyn* dyn = &dyns[j];
+                switch (dyn->d_tag) {
+                    case DT_STRTAB:
+                        strtab = (void*) (uint64_t) dyn->d_un.d_ptr;
+                        break;
+                    case DT_SYMTAB:
+                        symtab = (void*) (uint64_t) dyn->d_un.d_ptr;
+                        break;
+                    case DT_PLTRELSZ:
+                        pltrelsz = dyn->d_un.d_val;
+                        break;
+                    case DT_JMPREL:
+                        jmprel = (void*) (uint64_t) dyn->d_un.d_ptr;
+                        break;
+                    case DT_PLTREL:
+                        if (dyn->d_un.d_val != DT_REL) {
+                            fprintf(stderr, "Unsupported PLT relocation type %u (should be %u)\n",
+                                    dyn->d_un.d_val, DT_REL);
+                            return NULL;
+                        }
+                        break;
+                }
+            }
+            printf("DYNAMIC str %zx sym %zx plt %zx size %zx\n",
+                    strtab, symtab, jmprel, pltrelsz);
+
+            //FIXME: check if these pointers point inside mapped segments
+
+            if (!strtab || !symtab || !jmprel || !pltrelsz) {
+                printf("nothing dynamic here, skipping\n");
+                break;
+            }
+
+            Elf32_Rel* rels = jmprel;
+            //size_t relcnt = pltrelsz / sizeof(Elf32_Rel);
+
+            for (Elf32_Rel* rel = rels; rel < rels + pltrelsz; ++rel) {
+                if (ELF32_R_TYPE(rel->r_info) == R_386_NONE) {
+                    continue;
+                }
+                if (ELF32_R_TYPE(rel->r_info) != R_386_JMP_SLOT) {
+                    fprintf(stderr, "weird relocation type: %d - skipping\n",
+                        ELF32_R_TYPE(rel->r_info));
+                    continue;
+                }
+                Elf32_Sym* sym = &symtab[ELF32_R_SYM(rel->r_info)];
+                char* symname = &strtab[sym->st_name];
+                size_t funidx;
+                for (funidx = 0; funidx < nfuncs; ++funidx) {
+                    if (!strcmp(symname, funcs[funidx].name)) {
+                        break;
+                    }
+                }
+                if (funidx == nfuncs) {
+                    fprintf(stderr, "unknown function %s\n", symname);
+                    return NULL;
+                }
+                uint32_t value = (uint32_t) (size_t) trampolines[funidx];
+                uint32_t* target = (uint32_t*) (uint64_t) rel->r_offset;
+                printf("writing symbol %s value %zx at %zx\n", symname, value, target);
+                *target = value;
+            }
+
+            break;}
+        }
+    }
+
+    uint32_t entrypoint = elfhdr.e_entry;
+
+#if 0
+    size_t hunk_ptr = (size_t) trampolines[1];
+
+    //TMPHACK
+    //crossld_call64_in_fake_ptr_ptr = (uint32_t*) 0x0804b010UL;
+
+    printf("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
+    *crossld_call64_in_fake_ptr_ptr = (uint32_t) hunk_ptr;
+#endif
+
+    return (void*) (uint64_t) entrypoint;
+    //return test32;
+}
+
 int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
-    //TODO
-    return 0;
+    struct function allfuncs[nfuncs+1];
+
+    memcpy(allfuncs, funcs, nfuncs * sizeof(struct function));
+    allfuncs[nfuncs] = crossld_exit_fun;
+    ++nfuncs;
+
+    void* trampolines[nfuncs];
+
+    void* common_hunks = crossld_generate_trampolines(trampolines, allfuncs, nfuncs);
+    if (common_hunks == NULL) {
+        return -1;
+    }
+
+    void *start = load_elf(fname, trampolines, allfuncs, nfuncs);
+    if (start == NULL) {
+        return -1;
+    }
+
+    return crossld_enter(start, common_hunks);
 }
