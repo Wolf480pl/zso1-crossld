@@ -136,7 +136,12 @@ static void *load_elf(const char *fname, void * const *trampolines,
                 return NULL;
             }
             if ((size_t) addr != vaddr) {
-                printf("WARNING: mmap moved us to %zx\n", addr);
+                perror("mmap put us somewhere else");
+                printf("ERROR: mmap moved us to %zx\n", addr);
+                if (munmap(addr, size) < 0) {
+                    perror("munmap");
+                }
+                return NULL;
             }
             //TMPHACK
             crossld_call64_in_fake_ptr_ptr = addr + page_offset;
