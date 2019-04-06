@@ -38,6 +38,23 @@ const char valid_elf_ident[EI_NIDENT] = {
 //    0, // ABI version
 };
 
+static void* mmap_exact(void *addr, size_t length, int prot, int flags,
+                        int fd, off_t offset) {
+    void* actual_addr = mmap(addr, length, prot, flags, fd, offset);
+    if (actual_addr == MAP_FAILED) {
+        perror("mmap");
+        return MAP_FAILED;
+    }
+    if (actual_addr != addr) {
+        printf("ERROR: mmap moved us to %zx\n", actual_addr);
+        if (munmap(actual_addr, length) < 0) {
+            perror("munmap");
+        }
+        return MAP_FAILED;
+    }
+    return actual_addr;
+}
+
 static void *load_elf(const char *fname, void * const *trampolines,
                       const struct function *funcs, int nfuncs) {
 
@@ -114,34 +131,47 @@ static void *load_elf(const char *fname, void * const *trampolines,
                                 "%u > %u\n", hdr->p_filesz, hdr->p_memsz);
                 return NULL;
             }
-            if (hdr->p_filesz < hdr->p_memsz) {
-                fprintf(stderr, "segment with trailing zeros (unimplemented,"
-                                " skipping):"
-                                "%u > %u\n", hdr->p_filesz, hdr->p_memsz);
-                continue;
-            }
             printf("LOAD %zx %zx %zx %zx %zu\n", hdr->p_vaddr, hdr->p_memsz,
                     hdr->p_offset, hdr->p_filesz, prot);
             size_t page_offset = hdr->p_vaddr & (PAGE_SIZE - 1);
             size_t vaddr = hdr->p_vaddr - page_offset;
             size_t offset = hdr->p_offset - page_offset;
             size_t size = hdr->p_filesz + page_offset;
-            size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-            printf("mmap %zx %zx %zx %zx %zu\n", vaddr, size,
+            size_t mapsize = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+            printf("mmap %zx %zx %zx %zx %zu\n", vaddr, mapsize,
                     offset, size, prot);
-            void *addr = mmap((void*) vaddr, size, prot,
-                              MAP_PRIVATE | MAP_32BIT, fd, offset);
+            char *addr = mmap_exact((void*) vaddr, size, prot,
+                                    MAP_PRIVATE | MAP_32BIT, fd, offset);
             if (addr == MAP_FAILED) {
-                perror("mmap");
                 return NULL;
             }
-            if ((size_t) addr != vaddr) {
-                perror("mmap put us somewhere else");
-                printf("ERROR: mmap moved us to %zx\n", addr);
-                if (munmap(addr, size) < 0) {
-                    perror("munmap");
+            if (hdr->p_filesz < hdr->p_memsz) {
+                printf("segment with trailing zeros:"
+                       "%u < %u\n", hdr->p_filesz, hdr->p_memsz);
+                char* bss_start = addr + size;
+                char* bss_end = addr + page_offset + hdr->p_memsz;
+                size_t bss_size = bss_end - bss_start;
+                size_t bss_page_offset = ((size_t) bss_start) & (PAGE_SIZE - 1);
+                size_t bzero_size = PAGE_SIZE - bss_page_offset;
+                size_t anon_map_size = 0;
+                if (bzero_size > bss_size) {
+                    bzero_size = bss_size;
+                } else {
+                    anon_map_size = bss_size - bzero_size;
                 }
-                return NULL;
+                char* anon_start = bss_start + bzero_size;
+
+                printf("bzero at %zx, size %zx, map anon from %zx, size %zx\n",
+                       bss_start, bzero_size, anon_start, anon_map_size);
+
+                bzero(bss_start, bzero_size);
+                if (anon_map_size > 0) {
+                    void* anonaddr = mmap_exact(anon_start, anon_map_size,
+                        prot, MAP_PRIVATE | MAP_32BIT | MAP_ANONYMOUS, -1, 0);
+                    if (anonaddr == MAP_FAILED) {
+                        return NULL;
+                    }
+                }
             }
 #ifdef FAKE
             //TMPHACK
