@@ -63,7 +63,10 @@ int main() {
     puts("hi");
 
     //crossld_start_fun(test32, funs, 2);
-    //crossld_start("testelf32", funs, 2);
+#ifdef FAKE
+    crossld_start("testelf32", funs, 2);
+#else
     crossld_start("hello-32", funs, 3);
+#endif
     return 0;
 }

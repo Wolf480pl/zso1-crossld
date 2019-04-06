@@ -1,6 +1,8 @@
 #ifndef CROSSLD_H
 #define CROSSLD_H
 
+//#define FAKE
+
 enum type {
 	TYPE_VOID,
 	TYPE_INT,
