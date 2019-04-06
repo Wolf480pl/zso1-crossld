@@ -44,10 +44,12 @@ struct unmap_vec {
 #endif
 
 static void unmapall(struct tounmap *vec) {
-    for (struct tounmap *elem = vec; vec->len != 0; ++elem) {
+    for (struct tounmap *elem = vec; elem->len != 0; ++elem) {
         if (munmap(elem->addr, elem->len) < 0) {
             perror("munmap");
             // keep going, unmap what we can
+        } else {
+            puts("freed");
         }
     }
 }
@@ -96,7 +98,7 @@ static void *load_elf(const char *fname, void * const *trampolines,
     }
 
     Elf32_Ehdr elfhdr;
-    if (pread(fd, &elfhdr, sizeof(elfhdr), 0) < 0) {
+    if (pread(fd, &elfhdr, sizeof(elfhdr), 0) != sizeof(elfhdr)) {
         perror("pread");
         return NULL;
     }
@@ -133,7 +135,7 @@ static void *load_elf(const char *fname, void * const *trampolines,
     }
 
     Elf32_Phdr phdrs[elfhdr.e_phnum];
-    if (pread(fd, phdrs, sizeof(phdrs), elfhdr.e_phoff) < 0) {
+    if (pread(fd, phdrs, sizeof(phdrs), elfhdr.e_phoff) != sizeof(phdrs)) {
         perror("pread");
         return NULL;
     }
@@ -224,7 +226,7 @@ static void *load_elf(const char *fname, void * const *trampolines,
         case PT_DYNAMIC: {
             size_t dyncnt = hdr->p_filesz / sizeof(Elf32_Dyn);
             Elf32_Dyn dyns[dyncnt];
-            if (pread(fd, &dyns, sizeof(dyns), hdr->p_offset) < 0) {
+            if (pread(fd, &dyns, sizeof(dyns), hdr->p_offset) != sizeof(dyns)) {
                 perror("pread dynamic");
                 return NULL;
             }
@@ -344,7 +346,9 @@ int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
         res = crossld_enter(start, common_hunks);
     }
 
-    unmapall(map_vec);
+    if (map_vec) {
+        unmapall(map_vec);
+    }
     crossld_free_trampolines(common_hunks);
     free(map_vec);
     return res;
