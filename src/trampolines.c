@@ -112,6 +112,13 @@ void* crossld_generate_trampolines(void **res_trampolines,
     return common_hunks;
 }
 
+void crossld_free_trampolines(void *common_hunks) {
+    void *code_start = common_hunks; // they happen to be the s ame
+    if (munmap(code_start, code_size) < 0) {
+        perror("munmap");
+    }
+}
+
 int crossld_enter(void *start, void *common_hunks) {
     void *stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE,
                        MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);

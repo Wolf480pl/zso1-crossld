@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <elf.h>
@@ -29,21 +30,50 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
     return crossld_enter(start, common_hunks);
 }
 
-static void* mmap_exact(void *addr, size_t length, int prot, int flags,
+struct tounmap {
+    void *addr;
+    size_t len;
+};
+
+#if 0
+// We could have a struct like this, but how do you calloc it?
+struct unmap_vec {
+    size_t count;
+    struct tounmap elems[];
+}
+#endif
+
+static void unmapall(struct tounmap *vec) {
+    for (struct tounmap *elem = vec; vec->len != 0; ++elem) {
+        if (munmap(elem->addr, elem->len) < 0) {
+            perror("munmap");
+            // keep going, unmap what we can
+        }
+    }
+}
+
+static struct tounmap mmap_exact(void *addr, size_t length, int prot, int flags,
                         int fd, off_t offset) {
     void* actual_addr = mmap(addr, length, prot, flags, fd, offset);
+
+    struct tounmap res;
+    res.addr = MAP_FAILED;
+    res.len = 0;
+
     if (actual_addr == MAP_FAILED) {
         perror("mmap");
-        return MAP_FAILED;
+        return res;
     }
     if (actual_addr != addr) {
         printf("ERROR: mmap moved us to %zx\n", actual_addr);
         if (munmap(actual_addr, length) < 0) {
             perror("munmap");
         }
-        return MAP_FAILED;
+        return res;
     }
-    return actual_addr;
+    res.addr = actual_addr;
+    res.len = length;
+    return res;
 }
 
 const char valid_elf_ident[EI_NIDENT] = {
@@ -56,6 +86,7 @@ const char valid_elf_ident[EI_NIDENT] = {
 };
 
 static void *load_elf(const char *fname, void * const *trampolines,
+                      struct tounmap** map_vec_ptr,
                       const struct function *funcs, int nfuncs) {
 
     int fd = open(fname, O_RDONLY);
@@ -111,6 +142,12 @@ static void *load_elf(const char *fname, void * const *trampolines,
     uint32_t* crossld_call64_in_fake_ptr_ptr;
 #endif
 
+    // if each header is LOAD, and each has a BSS, we'll use 2*e_phnum mappings
+    // plus one for null terminator
+    struct tounmap* map_vec = calloc(elfhdr.e_phnum * 2 + 1, sizeof(struct tounmap));
+    *map_vec_ptr = map_vec;
+    struct tounmap* map_next = map_vec;
+
     for (size_t i = 0; i < elfhdr.e_phnum; ++i) {
         printf("hdr %zu\n", i);
         int prot = 0;
@@ -138,13 +175,17 @@ static void *load_elf(const char *fname, void * const *trampolines,
             size_t offset = hdr->p_offset - page_offset;
             size_t size = hdr->p_filesz + page_offset;
             size_t mapsize = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
             printf("mmap %zx %zx %zx %zx %zu\n", vaddr, mapsize,
                     offset, size, prot);
-            char *addr = mmap_exact((void*) vaddr, size, prot,
+            *map_next = mmap_exact((void*) vaddr, size, prot,
                                     MAP_PRIVATE | MAP_32BIT, fd, offset);
+            void *addr = map_next->addr;
             if (addr == MAP_FAILED) {
                 return NULL;
             }
+            ++map_next;
+
             if (hdr->p_filesz < hdr->p_memsz) {
                 printf("segment with trailing zeros:"
                        "%u < %u\n", hdr->p_filesz, hdr->p_memsz);
@@ -166,11 +207,12 @@ static void *load_elf(const char *fname, void * const *trampolines,
 
                 bzero(bss_start, bzero_size);
                 if (anon_map_size > 0) {
-                    void* anonaddr = mmap_exact(anon_start, anon_map_size,
+                    *map_next = mmap_exact(anon_start, anon_map_size,
                         prot, MAP_PRIVATE | MAP_32BIT | MAP_ANONYMOUS, -1, 0);
-                    if (anonaddr == MAP_FAILED) {
+                    if (map_next->addr == MAP_FAILED) {
                         return NULL;
                     }
+                    ++map_next;
                 }
             }
 #ifdef FAKE
@@ -293,10 +335,17 @@ int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
         return -1;
     }
 
-    void *start = load_elf(fname, trampolines, allfuncs, nfuncs);
-    if (start == NULL) {
-        return -1;
+    struct tounmap *map_vec = NULL;
+    void *start = load_elf(fname, trampolines, &map_vec, allfuncs, nfuncs);
+
+    int res = -1;
+    if (start != NULL) {
+        // call the entrypoint
+        res = crossld_enter(start, common_hunks);
     }
 
-    return crossld_enter(start, common_hunks);
+    unmapall(map_vec);
+    crossld_free_trampolines(common_hunks);
+    free(map_vec);
+    return res;
 }
