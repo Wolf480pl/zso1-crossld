@@ -29,15 +29,6 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
     return crossld_enter(start, common_hunks);
 }
 
-const char valid_elf_ident[EI_NIDENT] = {
-    ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3,
-    ELFCLASS32,
-    ELFDATA2LSB,
-    EV_CURRENT,
-//    ELFOSABI_SYSV,
-//    0, // ABI version
-};
-
 static void* mmap_exact(void *addr, size_t length, int prot, int flags,
                         int fd, off_t offset) {
     void* actual_addr = mmap(addr, length, prot, flags, fd, offset);
@@ -54,6 +45,15 @@ static void* mmap_exact(void *addr, size_t length, int prot, int flags,
     }
     return actual_addr;
 }
+
+const char valid_elf_ident[EI_NIDENT] = {
+    ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3,
+    ELFCLASS32,
+    ELFDATA2LSB,
+    EV_CURRENT,
+//    ELFOSABI_SYSV,
+//    0, // ABI version
+};
 
 static void *load_elf(const char *fname, void * const *trampolines,
                       const struct function *funcs, int nfuncs) {
