@@ -5,7 +5,7 @@ LIBDIR := ../../src
 LIBCROSSLD := $(LIBDIR)/libcrossld.so
 
 BADELFS_RAW := badelf0 badelf0a
-BADELFS_LD := badelf1 badelf2 badelf3
+BADELFS_LD := badelf1 badelf2 badelf3 badelf4
 
 BADELFS_LD_SCRIPTS := $(patsubst %,%.ld,$(BADELFS_LD)) 
 BADELFS := $(BADELFS_RAW) $(BADELFS_LD)
