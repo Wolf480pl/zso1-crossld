@@ -9,6 +9,7 @@ all: test test_so testelf32
 
 trampolines.o: trampolines.c crossld.h trampolines.h
 crossld.o: crossld.c crossld.h trampolines.h
+test_main.o: test_main.c crossld.h
 
 wrapper.o: wrapper.asm
 	nasm -f elf64 -o $@ $<
