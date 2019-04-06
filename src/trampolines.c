@@ -125,7 +125,7 @@ int crossld_enter(void *start, void *common_hunks) {
     }
     stack += stack_size - 4;
 
-    puts("jumping");
+    puts("jumping"); fflush(stdout);
     jump32(stack, start);
     // TODO exit
     return 0;

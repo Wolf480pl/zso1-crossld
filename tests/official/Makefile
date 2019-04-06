@@ -5,4 +5,4 @@ all:
 .PHONY: all test
 
 test:
-	LD_LIBRARY_PATH=$(LIBDIR) ./prog-64
+	LD_LIBRARY_PATH=$(LIBDIR) ./prog-64; reset

@@ -12,7 +12,7 @@ FILES_SRCDIR := $(LIBS_SRCDIR) $(INCLUDES_SRCDIR)
 
 all: $(LIBS_SRCDIR) $(INCLUDES_INCLUDEDIR)
 
-.PHONY: all clean
+.PHONY: all clean $(LIBS_SRCDIR)
 
 $(FILES_SRCDIR): src/%:
 	make -C src $*
