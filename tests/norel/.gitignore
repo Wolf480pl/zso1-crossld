@@ -1,0 +1,6 @@
+elf32
+noload
+noload_so
+norel
+norel_so
+
