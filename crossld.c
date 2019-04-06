@@ -189,7 +189,11 @@ static void *load_elf(const char *fname, void * const *trampolines,
             printf("DYNAMIC str %zx sym %zx plt %zx size %zx\n",
                     strtab, symtab, jmprel, pltrelsz);
 
-            //FIXME: check if these pointers point inside mapped segments
+            /*
+             * We don't need to check if these pointers point inside
+             * mapped segments. We're gonna give code exec to this
+             * ELF anyway, so we don't mind if the ELF tries to pwn us.
+             */
 
             if (!strtab || !symtab || !jmprel || !pltrelsz) {
                 printf("nothing dynamic here, skipping\n");
