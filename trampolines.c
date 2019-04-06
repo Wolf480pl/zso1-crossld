@@ -27,7 +27,7 @@ extern struct arg_hunk crossld_hunk_array[12];
 
 typedef void (*crossld_jump32_t)(void *stack, void *func);
 
-static const size_t stack_size = 4096;
+static const size_t stack_size = 4096 * 1024; // 4 MiB
 static const size_t code_size = 4096;
 
 static void* trampoline_cat(char **code_p, const void *src, size_t len) {
