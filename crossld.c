@@ -36,8 +36,8 @@ const char valid_elf_ident[EI_NIDENT] = {
     ELFCLASS32,
     ELFDATA2LSB,
     EV_CURRENT,
-    ELFOSABI_SYSV,
-    0, // ABI version
+//    ELFOSABI_SYSV,
+//    0, // ABI version
 };
 
 static void *load_elf(const char *fname, void * const *trampolines,
