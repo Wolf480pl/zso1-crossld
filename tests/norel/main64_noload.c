@@ -1,25 +1,29 @@
 #include <sys/mman.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "crossld.h"
 
+extern uint32_t crossld_call64_in_fake_ptr;
 extern void test32();
 
-extern int crossld_start_fun(void *start, const struct function *funcs, int nfuncs);
-
-static const size_t stack_size = 4096;
+extern int crossld_start_fun(void *start, const struct function *funcs, int nfuncs,
+                             uint32_t *patch_ptr, size_t funidx);
 
 int myfun(int x) {
     printf("i have %d\n", x);
+    fflush(stdout);
     return 42;
 }
 
 int myfun2(int x, int y) {
     printf("i have %d and %d\n", x, y);
+    fflush(stdout);
     return 42;
 }
 
 void print(char *str) {
     puts(str);
+    fflush(stdout);
 }
 
 static const enum type myfun_args[] = {
@@ -62,11 +66,6 @@ static const struct function funs[] = {
 int main() {
     puts("hi");
 
-    //crossld_start_fun(test32, funs, 2);
-#ifdef FAKE
-    crossld_start("testelf32", funs, 2);
-#else
-    crossld_start("hello-32", funs, 3);
-#endif
+    crossld_start_fun(test32, funs, 2, &crossld_call64_in_fake_ptr, 1);
     return 0;
 }
