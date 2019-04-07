@@ -19,6 +19,8 @@ int main(int argc, char **argv) {
         int pid = getpid();
         snprintf(cmd, sizeof(cmd), "cat /proc/%d/maps", pid);
         system(cmd);
+        snprintf(cmd, sizeof(cmd), "ls -l /proc/%d/fd", pid);
+        system(cmd);
     }
     return 0;
 }
