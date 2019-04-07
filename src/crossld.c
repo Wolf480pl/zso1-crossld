@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <elf.h>
 
 #include "crossld.h"
@@ -78,6 +79,31 @@ static struct tounmap mmap_exact(void *addr, size_t length, int prot, int flags,
     return res;
 }
 
+// a wrapper around pread where short read only happens at EOF
+ssize_t preadall(int fd, void *vbuf, size_t nbyte, off_t offset) {
+    char* buf = vbuf;
+    ssize_t res;
+    ssize_t left = nbyte;
+    do {
+        res = pread(fd, buf, left, offset);
+        if (res < 0) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                perror("pread");
+                return res;
+            }
+        }
+        buf += res;
+        offset += res;
+        left -= res;
+    } while (res > 0);
+    if (left != 0) {
+        fprintf(stderr, "pread: End of file - expected %zd more bytes\n", left);
+    }
+    return nbyte - left;
+}
+
 const char valid_elf_ident[EI_NIDENT] = {
     ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3,
     ELFCLASS32,
@@ -87,19 +113,12 @@ const char valid_elf_ident[EI_NIDENT] = {
 //    0, // ABI version
 };
 
-static void *load_elf(const char *fname, void * const *trampolines,
+static void *load_elf(const int fd, void * const *trampolines,
                       struct tounmap** map_vec_ptr,
                       const struct function *funcs, int nfuncs) {
 
-    int fd = open(fname, O_RDONLY);
-    if (fd < 0) {
-        perror("open");
-        return NULL;
-    }
-
     Elf32_Ehdr elfhdr;
-    if (pread(fd, &elfhdr, sizeof(elfhdr), 0) != sizeof(elfhdr)) {
-        perror("pread");
+    if (preadall(fd, &elfhdr, sizeof(elfhdr), 0) != sizeof(elfhdr)) {
         return NULL;
     }
 
@@ -135,8 +154,7 @@ static void *load_elf(const char *fname, void * const *trampolines,
     }
 
     Elf32_Phdr phdrs[elfhdr.e_phnum];
-    if (pread(fd, phdrs, sizeof(phdrs), elfhdr.e_phoff) != sizeof(phdrs)) {
-        perror("pread");
+    if (preadall(fd, phdrs, sizeof(phdrs), elfhdr.e_phoff) != sizeof(phdrs)) {
         return NULL;
     }
 
@@ -226,8 +244,7 @@ static void *load_elf(const char *fname, void * const *trampolines,
         case PT_DYNAMIC: {
             size_t dyncnt = hdr->p_filesz / sizeof(Elf32_Dyn);
             Elf32_Dyn dyns[dyncnt];
-            if (pread(fd, &dyns, sizeof(dyns), hdr->p_offset) != sizeof(dyns)) {
-                perror("pread dynamic");
+            if (preadall(fd, &dyns, sizeof(dyns), hdr->p_offset) != sizeof(dyns)) {
                 return NULL;
             }
 
@@ -337,8 +354,21 @@ int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
         return -1;
     }
 
+    int fd = open(fname, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        crossld_free_trampolines(common_hunks);
+        return -1;
+    }
+
     struct tounmap *map_vec = NULL;
-    void *start = load_elf(fname, trampolines, &map_vec, allfuncs, nfuncs);
+    void *start = load_elf(fd, trampolines, &map_vec, allfuncs, nfuncs);
+
+    // we no longer need the FD, as mmaps will keep their own references
+    if (close(fd) < 0) {
+        perror("close");
+        // keep going, we can live with an extra unneeded FD
+    }
 
     int res = -1;
     if (start != NULL) {
@@ -349,7 +379,7 @@ int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
     if (map_vec) {
         unmapall(map_vec);
     }
-    crossld_free_trampolines(common_hunks);
     free(map_vec);
+    crossld_free_trampolines(common_hunks);
     return res;
 }
