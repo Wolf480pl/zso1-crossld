@@ -1,4 +1,6 @@
 global crossld_call64_dst_addr_mid_offset
+global crossld_call64_retconv_mid_offset
+global crossld_call64_panic_addr_mid_offset
 global crossld_call64_out_addr_mid_offset
 global crossld_call64_out_offset
 ;global crossld_jump32
@@ -10,6 +12,9 @@ global crossld_call64_trampoline_mid
 global crossld_call64_trampoline_len1
 global crossld_call64_trampoline_len2
 global crossld_hunk_array
+global crossld_check_u32
+global crossld_check_s32
+global crossld_pass_u64
 
 section .rodata
 dummy:
@@ -23,6 +28,10 @@ crossld_call64_trampoline_len2:
 
 crossld_call64_dst_addr_mid_offset:
     dq crossld_call64_dst_mov + 2 - crossld_call64_trampoline_mid
+crossld_call64_retconv_mid_offset:
+    dq crossld_call64_retconv - crossld_call64_trampoline_mid
+crossld_call64_panic_addr_mid_offset:
+    dq crossld_call64_panic_mov + 2 - crossld_call64_trampoline_mid
 crossld_call64_out_addr_mid_offset:
     dq crossld_call64_out_mov + 2 - crossld_call64_trampoline_mid
 
@@ -61,12 +70,30 @@ crossld_call64_mid:
 crossld_call64_dst_mov:
     mov rax, dummy ; callee goes here
     call rax
+crossld_call64_retconv:
+    ; will patch this place with ret value conversion hunk
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+crossld_call64_nopanic:
 crossld_call64_out_mov:
     mov r10, dummy ; crossld_call64_out goes here
 
     push r10                ; yeah, it pushes 8 bytes, even though we want 4
     mov dword [rsp+4], 0x23 ; so we overwrite the upper 4 bytes with segment selector :D
     retf
+crossld_call64_panic:
+    mov rdi, rax
+crossld_call64_panic_mov:
+    mov rax, dummy ; exit goes here
+    call rax
+
+crossld_call64_panic_jump_offset: equ crossld_call64_panic - crossld_call64_nopanic
 
 align 8
 crossld_call64_trampoline_end:
@@ -102,6 +129,22 @@ align 8
 crossld_hunks_end:
 
 align 8
+crossld_check_u32:
+    mov edi, eax
+    test rdi, rax
+    jnz short 1 + crossld_call64_panic_jump_offset
+
+crossld_check_s32:
+    movsx rdi, eax
+    test rdi, rax
+    jnz short 1 + crossld_call64_panic_jump_offset
+
+crossld_pass_u64:
+    nop
+    shl rdx, 32
+    or rax, rdx
+
+align 8
 crossld_hunk_array:
 crossld_load_edi:
     nop
@@ -116,6 +159,12 @@ crossld_load_rdi:
     nop
     mov rdi, [ebp+0x55]
 
+crossld_load_rdi_signed:
+    nop
+    nop
+    nop
+    movsx rdi, dword [ebp+0x55]
+
 crossld_load_esi:
     nop
     nop
@@ -128,6 +177,12 @@ crossld_load_rsi:
     nop
     nop
     mov rsi, [ebp+0x55]
+
+crossld_load_rsi_signed:
+    nop
+    nop
+    nop
+    movsx rsi, dword [ebp+0x55]
 
 crossld_load_edx:
     nop
@@ -142,6 +197,12 @@ crossld_load_rdx:
     nop
     mov rdx, [ebp+0x55]
 
+crossld_load_rdx_signed:
+    nop
+    nop
+    nop
+    movsx rdx, dword [ebp+0x55]
+
 crossld_load_ecx:
     nop
     nop
@@ -155,11 +216,11 @@ crossld_load_rcx:
     nop
     mov rcx, [ebp+0x55]
 
-crossld_load_r8:
+crossld_load_rcx_signed:
     nop
     nop
     nop
-    mov r8,  [ebp+0x55]
+    movsx rcx, dword [ebp+0x55]
 
 crossld_load_r8d:
     nop
@@ -167,17 +228,35 @@ crossld_load_r8d:
     nop
     mov r8d, [ebp+0x55]
 
-crossld_load_r9:
+crossld_load_r8:
     nop
     nop
     nop
-    mov r9,  [ebp+0x55]
+    mov r8,  [ebp+0x55]
+
+crossld_load_r8_signed:
+    nop
+    nop
+    nop
+    movsx r8, dword [ebp+0x55]
 
 crossld_load_r9d:
     nop
     nop
     nop
     mov r9d, [ebp+0x55]
+
+crossld_load_r9:
+    nop
+    nop
+    nop
+    mov r9,  [ebp+0x55]
+
+crossld_load_r9_signed:
+    nop
+    nop
+    nop
+    movsx r9, dword [ebp+0x55]
 
 crossld_push:
     lea rdi, [esp-1]

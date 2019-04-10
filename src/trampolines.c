@@ -13,22 +13,73 @@ struct arg_hunk {
     unsigned char depth;
 };
 
+struct ret_hunk {
+    unsigned char insn[8];
+};
+
 extern char crossld_hunks;
 extern char crossld_call64_trampoline_start;
 extern char crossld_call64_trampoline_mid;
 extern size_t crossld_jump32_offset;
 extern size_t crossld_call64_dst_addr_mid_offset;
+extern size_t crossld_call64_retconv_mid_offset;
+extern size_t crossld_call64_panic_addr_mid_offset;
 extern size_t crossld_call64_out_addr_mid_offset;
 extern size_t crossld_hunks_len;
 extern size_t crossld_call64_trampoline_len1;
 extern size_t crossld_call64_trampoline_len2;
 extern size_t crossld_call64_out_offset;
-extern struct arg_hunk crossld_hunk_array[12];
+extern struct arg_hunk crossld_hunk_array[6][3];
+extern struct ret_hunk crossld_check_u32;
+extern struct ret_hunk crossld_check_s32;
+extern struct ret_hunk crossld_pass_u64;
 
 typedef void (*crossld_jump32_t)(void *stack, void *func);
 
 static const size_t stack_size = 4096 * 1024; // 4 MiB
 static const size_t code_size = 4096;
+
+enum arg_mode {
+    ARG_PASS32 = 0,
+    ARG_PASS64 = 1,
+    ARG_SIGN32 = 2,
+};
+
+enum ret_mode {
+    RET_PASS32,
+    RET_PASS64,
+    RET_CHECK_U32,
+    RET_CHECK_S32,
+};
+
+static enum arg_mode arg_to_mode(enum type type) {
+    switch (type) {
+        case TYPE_UNSIGNED_LONG_LONG:
+        case TYPE_LONG_LONG:
+            return ARG_PASS64;
+        case TYPE_LONG:
+            return ARG_SIGN32;
+        default:
+            return ARG_PASS32;
+    }
+}
+
+static enum ret_mode ret_to_mode(enum type type) {
+    switch (type) {
+        case TYPE_UNSIGNED_LONG:
+        case TYPE_PTR:
+            return RET_CHECK_U32;
+        case TYPE_LONG:
+            return RET_CHECK_S32;
+        case TYPE_UNSIGNED_LONG_LONG:
+        case TYPE_LONG_LONG:
+            return RET_PASS64;
+        case TYPE_UNSIGNED_INT:
+        case TYPE_INT:
+        case TYPE_VOID:
+            return RET_PASS32;
+    }
+}
 
 static void* trampoline_cat(char **code_p, const void *src, size_t len) {
     void* start = *code_p;
@@ -38,45 +89,78 @@ static void* trampoline_cat(char **code_p, const void *src, size_t len) {
     return start;
 }
 
-static void* write_trampoline(char **code_p, char *common_hunks, const struct function *func) {
+static void patch(char *desc, void** const field, void *value) {
+    printf("putting %zx as %s at %zx\n", value, desc, field);
+    *field = value;
+}
+
+_Noreturn void crossld_panic(size_t retval);
+
+static void* write_trampoline(char **code_p, char *common_hunks,
+                              const struct function *func) {
     char* const code = *code_p;
 
-    trampoline_cat(code_p, &crossld_call64_trampoline_start, crossld_call64_trampoline_len1);
+    trampoline_cat(code_p, &crossld_call64_trampoline_start,
+                            crossld_call64_trampoline_len1);
 
     printf("starting injection at %zx\n", *code_p);
     struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
 
     size_t depth = 8;
     for (size_t i = 0; i < func->nargs; ++i) {
-        int is64 = 0;
+        enum arg_mode mode = arg_to_mode(func->args[i]);
         if (i < 6) {
-            *argconv = crossld_hunk_array[i * 2 + is64];
+            *argconv = crossld_hunk_array[i][mode];
             argconv->depth = depth;
             ++argconv;
         } else {
             //TODO
         }
-        depth += is64 ? 8 : 4;
+        depth += (mode == ARG_PASS64) ? 8 : 4;
     }
     *code_p = (char*) argconv;
     printf("finished injection at %zx\n", *code_p);
 
     void* mid = *code_p;
 
-    trampoline_cat(code_p, &crossld_call64_trampoline_mid, crossld_call64_trampoline_len2);
+    trampoline_cat(code_p, &crossld_call64_trampoline_mid,
+                            crossld_call64_trampoline_len2);
     printf("finished trampoline at %zx\n", *code_p);
 
     void* const funptr = func->code;
 
-    void** const dst_addr_field = (void**) (mid + crossld_call64_dst_addr_mid_offset);
-    void** const out_addr_field = (void**) (mid + crossld_call64_out_addr_mid_offset);
-    void** const out_hunk = (void**) (common_hunks + crossld_call64_out_offset);
+    void** const           dst_addr_field   = (void**)           (mid + crossld_call64_dst_addr_mid_offset);
+    struct ret_hunk* const retconv_field    = (struct ret_hunk*) (mid + crossld_call64_retconv_mid_offset);
+    void** const           panic_addr_field = (void**)           (mid + crossld_call64_panic_addr_mid_offset);
+    void** const           out_addr_field   = (void**)           (mid + crossld_call64_out_addr_mid_offset);
+    void** const           out_hunk         = (void**)           (common_hunks + crossld_call64_out_offset);
 
-    printf("putting %zx as dst address at %zx\n", funptr, dst_addr_field);
-    *dst_addr_field = funptr;
+    //printf("putting %zx as dst address at %zx\n", funptr, dst_addr_field);
+    //*dst_addr_field = funptr;
+    patch("dst address", dst_addr_field, funptr);
 
-    printf("putting %zx as out address at %zx\n", out_hunk, out_addr_field);
-    *out_addr_field = out_hunk;
+    switch (ret_to_mode(func->result)) {
+        case RET_PASS32:
+            // leave the NOPs
+            break;
+        case RET_PASS64:
+            *retconv_field = crossld_pass_u64;
+            break;
+        case RET_CHECK_S32:
+            *retconv_field = crossld_check_s32;
+            break;
+        case RET_CHECK_U32:
+            *retconv_field = crossld_check_u32;
+            break;
+    }
+
+    //printf("putting %zx as panic address at %zx\n", crossld_panic, panic_addr_field);
+    //*panic_addr_field = crossld_panic;
+    patch("panic address", panic_addr_field, crossld_panic);
+
+    //printf("putting %zx as out address at %zx\n", out_hunk, out_addr_field);
+    //*out_addr_field = out_hunk;
+    patch("out address", out_addr_field, out_hunk);
 
     //write(2, code, *code_p - code);
 
@@ -136,6 +220,15 @@ int crossld_enter(void *start, void *common_hunks) {
     jump32(stack, start);
     // TODO exit
     return 0;
+}
+
+_Noreturn void crossld_panic(size_t retval) {
+    fprintf(stderr, "PANIC: return value outside of range: %zx\n", retval);
+#if 1
+    abort();
+#else
+    crossld_exit(-1);
+#endif
 }
 
 _Noreturn void crossld_exit(int status) {
