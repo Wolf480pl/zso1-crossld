@@ -18,7 +18,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
                       uint32_t *patch_ptr, size_t funidx) {
     void* trampolines[nfuncs];
 
-    void* common_hunks = crossld_generate_trampolines(trampolines, funcs, nfuncs);
+    void* common_hunks = crossld_generate_trampolines(trampolines, funcs, nfuncs, NULL);
     if (common_hunks == NULL) {
         return -1;
     }
@@ -344,20 +344,20 @@ int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
     struct function allfuncs[nfuncs+1];
 
     memcpy(allfuncs, funcs, nfuncs * sizeof(struct function));
-    allfuncs[nfuncs] = crossld_exit_fun;
+    struct function* exit_fun = &allfuncs[nfuncs];
     ++nfuncs;
 
     void* trampolines[nfuncs];
 
-    void* common_hunks = crossld_generate_trampolines(trampolines, allfuncs, nfuncs);
-    if (common_hunks == NULL) {
+    struct crossld_ctx* ctx = crossld_generate_trampolines(trampolines, allfuncs, nfuncs, exit_fun);
+    if (ctx == NULL) {
         return -1;
     }
 
     int fd = open(fname, O_RDONLY);
     if (fd < 0) {
         perror("open");
-        crossld_free_trampolines(common_hunks);
+        crossld_free_trampolines(ctx);
         return -1;
     }
 
@@ -373,13 +373,13 @@ int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
     int res = -1;
     if (start != NULL) {
         // call the entrypoint
-        res = crossld_enter(start, common_hunks);
+        res = crossld_enter(start, ctx);
     }
 
     if (map_vec) {
         unmapall(map_vec);
     }
     free(map_vec);
-    crossld_free_trampolines(common_hunks);
+    crossld_free_trampolines(ctx);
     return res;
 }

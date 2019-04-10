@@ -15,6 +15,8 @@ global crossld_hunk_array
 global crossld_check_u32
 global crossld_check_s32
 global crossld_pass_u64
+global crossld_exit_ctx_addr_offset
+global crossld_exit_offset
 
 section .rodata
 dummy:
@@ -34,7 +36,6 @@ crossld_call64_panic_addr_mid_offset:
     dq crossld_call64_panic_mov + 2 - crossld_call64_trampoline_mid
 crossld_call64_out_addr_mid_offset:
     dq crossld_call64_out_mov + 2 - crossld_call64_trampoline_mid
-
 crossld_call64_out_offset:
     dq crossld_call64_out - crossld_hunks
 
@@ -43,6 +44,12 @@ crossld_hunks_len:
 
 crossld_jump32_offset:
     dq crossld_jump32 - crossld_hunks
+
+crossld_exit_offset:
+    dq crossld_do_exit - crossld_hunks
+
+crossld_exit_ctx_addr_offset:
+    dq crossld_exit_ctx_mov + 2 - crossld_hunks
 
 section .text
 
@@ -54,6 +61,8 @@ crossld_call64_trampoline_start:
     push ebx
     push edi
     push esi
+    ; align the stack
+    and esp, 0xfffffff0
 
     push 0x33
     call .eip
@@ -118,12 +127,32 @@ crossld_jump32_out:
 
 [bits 64]
 crossld_jump32:
+    push rbp
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov [rdx], rsp
     mov rsp, rdi
     sub rsp, 8
     mov dword [rsp+4], 0x23
     lea rax, [rel crossld_jump32_out]
     mov [rsp], eax
     retf
+
+crossld_do_exit:
+    mov rax, rdi ; exit code
+crossld_exit_ctx_mov:
+    mov rdi, dummy
+    mov rsp, [rdi]
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
+    ret
 
 align 8
 crossld_hunks_end:
