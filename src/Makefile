@@ -1,4 +1,4 @@
-CFLAGS ?= -O3 -g
+CFLAGS ?= -O3 -g -std=gnu11 -Wall
 GCC_OPTS := $(CFLAGS) -fPIC -fvisibility=hidden
 
 TARGETS_MAIN := libcrossld.so crossld.h

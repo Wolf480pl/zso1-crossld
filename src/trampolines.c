@@ -59,6 +59,7 @@ static enum ret_mode ret_to_mode(enum type type) {
         case TYPE_VOID:
             return RET_PASS32;
     }
+    __builtin_unreachable();
 }
 
 static void* trampoline_cat(char **code_p, const void *src, size_t len) {
@@ -70,7 +71,7 @@ static void* trampoline_cat(char **code_p, const void *src, size_t len) {
 }
 
 static void patch(char *desc, void** const field, void *value) {
-    DBG("putting %zx as %s at %zx\n", value, desc, field);
+    DBG("putting %p as %s at %p\n", value, desc, field);
     *field = value;
 }
 
@@ -83,7 +84,7 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
     trampoline_cat(code_p, &crossld_call64_trampoline_start,
                             crossld_call64_trampoline_len1);
 
-    DBG("starting injection at %zx\n", *code_p);
+    DBG("starting injection at %p\n", *code_p);
     struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
 
     size_t depth = 8;
@@ -134,13 +135,13 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
     }
 
     *code_p = (char*) argconv;
-    DBG("finished injection at %zx\n", *code_p);
+    DBG("finished injection at %p\n", *code_p);
 
-    void* mid = *code_p;
+    char* mid = *code_p;
 
     trampoline_cat(code_p, &crossld_call64_trampoline_mid,
                             crossld_call64_trampoline_len2);
-    DBG("finished trampoline at %zx\n", *code_p);
+    DBG("finished trampoline at %p\n", *code_p);
 
     void* const funptr = func->code;
 
@@ -231,7 +232,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
 #ifndef CROSSLD_NOEXIT
         exit_func->code = ctx->common_hunks + crossld_exit_offset;
 #endif
-        DBG("exit func: %zx code %zx\n", exit_func, exit_func->code);
+        DBG("exit func: %p code %p\n", exit_func, exit_func->code);
     }
 
     for (size_t i = 0; i < nfuncs; ++i) {
@@ -276,7 +277,7 @@ _Noreturn void crossld_panic(size_t retval, struct crossld_ctx *ctx) {
     abort();
 #else
     crossld_exit_t cexit =
-            (crossld_exit_t )ctx->common_hunks + crossld_exit_offset;
+            (crossld_exit_t) (ctx->common_hunks + crossld_exit_offset);
     cexit(-1);
 #endif
 }

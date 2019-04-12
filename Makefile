@@ -1,4 +1,4 @@
-CFLAGS := -O3 -g -DDEBUG
+CFLAGS := -O3 -g -DDEBUG -std=gnu11 -Wall
 export CFLAGS
 
 DIRS := include

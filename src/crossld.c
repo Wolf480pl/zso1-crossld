@@ -28,7 +28,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
 
     size_t hunk_ptr = (size_t) trampolines[funidx];
 
-    DBG("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, patch_ptr);
+    DBG("putting: %x as trampoline ptr at %p\n", (uint32_t) hunk_ptr, patch_ptr);
     *patch_ptr = (uint32_t) hunk_ptr;
 
     return crossld_enter(start, common_hunks);
@@ -72,7 +72,7 @@ static struct tounmap mmap_exact(void *addr, size_t length, int prot, int flags,
         return res;
     }
     if (actual_addr != addr) {
-        DBG("ERROR: mmap moved us to %zx\n", actual_addr);
+        DBG("ERROR: mmap moved us to %p\n", actual_addr);
         if (munmap(actual_addr, length) < 0) {
             perror("munmap");
         }
@@ -161,7 +161,7 @@ static void *load_elf(const int fd, void * const *trampolines,
     }
 
 #ifdef CROSSLD_FAKE
-    uint32_t* crossld_call64_in_fake_ptr_ptr;
+    uint32_t* crossld_call64_in_fake_ptr_ptr = NULL;
 #endif
 
     // if each header is LOAD, and each has a BSS, we'll use 2*e_phnum mappings
@@ -190,7 +190,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                                 "%u > %u\n", hdr->p_filesz, hdr->p_memsz);
                 return NULL;
             }
-            DBG("LOAD %zx %zx %zx %zx %zu\n", hdr->p_vaddr, hdr->p_memsz,
+            DBG("LOAD %x %x %x %x %d\n", hdr->p_vaddr, hdr->p_memsz,
                     hdr->p_offset, hdr->p_filesz, prot);
             size_t page_offset = hdr->p_vaddr & (PAGE_SIZE - 1);
             size_t vaddr = hdr->p_vaddr - page_offset;
@@ -198,11 +198,11 @@ static void *load_elf(const int fd, void * const *trampolines,
             size_t size = hdr->p_filesz + page_offset;
             size_t mapsize = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 
-            DBG("mmap %zx %zx %zx %zx %zu\n", vaddr, mapsize,
+            DBG("mmap %zx %zx %zx %zx %d\n", vaddr, mapsize,
                     offset, size, prot);
             *map_next = mmap_exact((void*) vaddr, size, prot,
                                     MAP_PRIVATE | MAP_32BIT, fd, offset);
-            void *addr = map_next->addr;
+            char *addr = map_next->addr;
             if (addr == MAP_FAILED) {
                 return NULL;
             }
@@ -224,7 +224,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                 }
                 char* anon_start = bss_start + bzero_size;
 
-                DBG("bzero at %zx, size %zx, map anon from %zx, size %zx\n",
+                DBG("bzero at %p, size %zx, map anon from %p, size %zx\n",
                        bss_start, bzero_size, anon_start, anon_map_size);
 
                 bzero(bss_start, bzero_size);
@@ -239,7 +239,7 @@ static void *load_elf(const int fd, void * const *trampolines,
             }
 #ifdef CROSSLD_FAKE
             //TMPHACK
-            crossld_call64_in_fake_ptr_ptr = addr + page_offset;
+            crossld_call64_in_fake_ptr_ptr = (void*) (addr + page_offset);
 #endif
             break;
 
@@ -279,7 +279,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                         break;
                 }
             }
-            DBG("DYNAMIC str %zx sym %zx plt %zx size %zx\n",
+            DBG("DYNAMIC str %p sym %p plt %p size %zx\n",
                     strtab, symtab, jmprel, pltrelsz);
 
             /*
@@ -318,7 +318,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                 }
                 uint32_t value = (uint32_t) (size_t) trampolines[funidx];
                 uint32_t* target = (uint32_t*) (uint64_t) rel->r_offset;
-                DBG("writing symbol %s value %zx at %zx\n", symname, value, target);
+                DBG("writing symbol %s value %x at %p\n", symname, value, target);
                 *target = value;
             }
 
@@ -330,10 +330,12 @@ static void *load_elf(const int fd, void * const *trampolines,
 
 #ifdef CROSSLD_FAKE
     //TMPHACK
-    size_t hunk_ptr = (size_t) trampolines[1];
+    if (crossld_call64_in_fake_ptr_ptr) {
+        size_t hunk_ptr = (size_t) trampolines[1];
 
-    DBG("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
-    *crossld_call64_in_fake_ptr_ptr = (uint32_t) hunk_ptr;
+        DBG("putting: %x as trampoline ptr at %p\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
+        *crossld_call64_in_fake_ptr_ptr = (uint32_t) hunk_ptr;
+    }
 #endif
 
     return (void*) (uint64_t) entrypoint;
