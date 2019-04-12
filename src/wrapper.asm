@@ -1,24 +1,23 @@
-global crossld_call64_dst_addr_mid_offset
-global crossld_call64_retconv_mid_offset
-global crossld_call64_panic_addr_mid_offset
-global crossld_call64_panic_ctx_addr_mid_offset
-global crossld_call64_out_addr_mid_offset
-global crossld_call64_out_offset
-;global crossld_jump32
-global crossld_jump32_offset
-global crossld_hunks
-global crossld_hunks_len
-global crossld_call64_trampoline_start
-global crossld_call64_trampoline_mid
-global crossld_call64_trampoline_len1
-global crossld_call64_trampoline_len2
-global crossld_hunk_array
-global crossld_push_rax
-global crossld_check_u32
-global crossld_check_s32
-global crossld_pass_u64
-global crossld_exit_ctx_addr_offset
-global crossld_exit_offset
+global crossld_call64_dst_addr_mid_offset:data hidden
+global crossld_call64_retconv_mid_offset:data hidden
+global crossld_call64_panic_addr_mid_offset:data hidden
+global crossld_call64_panic_ctx_addr_mid_offset:data hidden
+global crossld_call64_out_addr_mid_offset:data hidden
+global crossld_call64_out_offset:data hidden
+global crossld_jump32_offset:data hidden
+global crossld_hunks:data hidden
+global crossld_hunks_len:data hidden
+global crossld_call64_trampoline_start:data hidden
+global crossld_call64_trampoline_mid:data hidden
+global crossld_call64_trampoline_len1:data hidden
+global crossld_call64_trampoline_len2:data hidden
+global crossld_hunk_array:data hidden
+global crossld_push_rax:data hidden
+global crossld_check_u32:data hidden
+global crossld_check_s32:data hidden
+global crossld_pass_u64:data hidden
+global crossld_exit_ctx_addr_offset:data hidden
+global crossld_exit_offset:data hidden
 
 section .rodata
 dummy:
@@ -182,68 +181,70 @@ crossld_pass_u64:
 
 align 4
 crossld_hunk_array:
-crossld_load_edi:
+.load_edi:
     mov edi, [ebp+0x55]
 
-crossld_load_rdi:
+.load_rdi:
     mov rdi, [rbp+0x55]
 
-crossld_load_rdi_signed:
+.load_rdi_signed:
     movsx rdi, dword [rbp+0x55]
 
-crossld_load_esi:
+.load_esi:
     mov esi, [ebp+0x55]
 
-crossld_load_rsi:
+.load_rsi:
     mov rsi, [rbp+0x55]
 
-crossld_load_rsi_signed:
+.load_rsi_signed:
     movsx rsi, dword [rbp+0x55]
 
-crossld_load_edx:
+.load_edx:
     mov edx, [ebp+0x55]
 
-crossld_load_rdx:
+.load_rdx:
     mov rdx, [rbp+0x55]
 
-crossld_load_rdx_signed:
+.load_rdx_signed:
     movsx rdx, dword [rbp+0x55]
 
-crossld_load_ecx:
+.load_ecx:
     mov ecx, [ebp+0x55]
 
-crossld_load_rcx:
+.load_rcx:
     mov rcx, [rbp+0x55]
 
-crossld_load_rcx_signed:
+.load_rcx_signed:
     movsx rcx, dword [rbp+0x55]
 
-crossld_load_r8d:
+.load_r8d:
     mov r8d, [rbp+0x55]
 
-crossld_load_r8:
+.load_r8:
     mov r8,  [rbp+0x55]
 
-crossld_load_r8_signed:
+.load_r8_signed:
     movsx r8, dword [rbp+0x55]
 
-crossld_load_r9d:
+.load_r9d:
     mov r9d, [rbp+0x55]
 
-crossld_load_r9:
+.load_r9:
     mov r9,  [rbp+0x55]
 
-crossld_load_r9_signed:
+.load_r9_signed:
     movsx r9, dword [rbp+0x55]
 
-crossld_load_eax:
+.load_eax:
     mov eax, [ebp+0x55]
 
-crossld_load_rax:
+.load_rax:
     mov rax, [rbp+0x55]
 
-crossld_load_rax_signed:
+.load_rax_signed:
     movsxd rax, [rbp+0x55]
+
+.end
 
 crossld_push_rax:
     push rax

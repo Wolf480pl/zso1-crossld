@@ -14,6 +14,7 @@
 
 const size_t PAGE_SIZE = 4096;
 
+__attribute__((visibility("default")))
 int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
                       uint32_t *patch_ptr, size_t funidx) {
     void* trampolines[nfuncs];
@@ -340,6 +341,7 @@ static void *load_elf(const int fd, void * const *trampolines,
     return (void*) (uint64_t) entrypoint;
 }
 
+__attribute__((visibility("default")))
 int crossld_start(const char *fname, const struct function *funcs, int nfuncs) {
     struct function allfuncs[nfuncs+1];
 

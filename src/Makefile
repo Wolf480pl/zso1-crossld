@@ -5,9 +5,9 @@ all: libcrossld.so libcrossld.o libcrossld.fake.so libcrossld.fake.o crossld.h
 .PHONY: all clean
 
 %.o: %.c
-	gcc $(CFLAGS) -fPIC -c -o $@ $<
+	gcc $(CFLAGS) -fvisibility=hidden -fPIC -c -o $@ $<
 
-trampolines.o: trampolines.c crossld.h trampolines.h
+trampolines.o: trampolines.c crossld.h trampolines.h wrapper.h
 crossld.o: crossld.c crossld.h trampolines.h
 
 crossld.fake.o: crossld.c crossld.h trampolines.h
