@@ -1,5 +1,5 @@
 CFLAGS ?= -O3 -g
-GCC_OPTS = $(CFLAGS) -fPIC -fvisibility=hidden
+GCC_OPTS := $(CFLAGS) -fPIC -fvisibility=hidden
 
 all: libcrossld.so libcrossld.o libcrossld.fake.so libcrossld.fake.o crossld.h
 
