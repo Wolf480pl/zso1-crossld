@@ -1,4 +1,4 @@
-TESTS := hello norel
+TESTS := hello norel test_z1
 CLEANTESTS := $(patsubst %,%.clean,$(TESTS))
 
 all: $(TESTS)
