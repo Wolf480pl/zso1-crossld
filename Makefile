@@ -1,4 +1,5 @@
-CFLAGS := -O3 -g
+CFLAGS := -O3 -g -DDEBUG
+export CFLAGS
 
 DIRS := include
 INCLUDES := crossld.h
@@ -15,7 +16,7 @@ all: $(LIBS_SRCDIR) $(INCLUDES_INCLUDEDIR)
 .PHONY: all clean $(LIBS_SRCDIR)
 
 $(FILES_SRCDIR): src/%:
-	make -C src $*
+	$(MAKE) -C src $*
 
 $(DIRS): %:
 	mkdir -p $@
@@ -24,9 +25,9 @@ $(INCLUDES_INCLUDEDIR): include/%: src/% | include
 	cp $< $@
 
 test: all
-	make -C tests
+	$(MAKE) -C tests
 
 clean:
-	make -C src clean
-	make -C tests clean
+	$(MAKE) -C src clean
+	$(MAKE) -C tests clean
 	rm -rf include

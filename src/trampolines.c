@@ -8,6 +8,7 @@
 #include "crossld.h"
 #include "trampolines.h"
 #include "wrapper.h"
+#include "debug.h"
 
 #define CROSSLD_EXIT
 
@@ -64,14 +65,14 @@ static enum ret_mode ret_to_mode(enum type type) {
 
 static void* trampoline_cat(char **code_p, const void *src, size_t len) {
     void* start = *code_p;
-    printf("copying %zd bytes\n", len);
+    DBG("copying %zd bytes\n", len);
     memcpy(*code_p, src, len);
     *code_p += len;
     return start;
 }
 
 static void patch(char *desc, void** const field, void *value) {
-    printf("putting %zx as %s at %zx\n", value, desc, field);
+    DBG("putting %zx as %s at %zx\n", value, desc, field);
     *field = value;
 }
 
@@ -84,7 +85,7 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
     trampoline_cat(code_p, &crossld_call64_trampoline_start,
                             crossld_call64_trampoline_len1);
 
-    printf("starting injection at %zx\n", *code_p);
+    DBG("starting injection at %zx\n", *code_p);
     struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
 
     size_t depth = 8;
@@ -135,13 +136,13 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
     }
 
     *code_p = (char*) argconv;
-    printf("finished injection at %zx\n", *code_p);
+    DBG("finished injection at %zx\n", *code_p);
 
     void* mid = *code_p;
 
     trampoline_cat(code_p, &crossld_call64_trampoline_mid,
                             crossld_call64_trampoline_len2);
-    printf("finished trampoline at %zx\n", *code_p);
+    DBG("finished trampoline at %zx\n", *code_p);
 
     void* const funptr = func->code;
 
@@ -216,7 +217,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
 
     ctx->common_hunks = trampoline_cat(&code, &crossld_hunks, crossld_hunks_len);
 
-    printf("jump32 offset: %zd dst offset: %zd out offset: %zd\n",
+    DBG("jump32 offset: %zd dst offset: %zd out offset: %zd\n",
             crossld_jump32_offset, crossld_call64_dst_addr_mid_offset,
             crossld_call64_out_addr_mid_offset);
 
@@ -227,7 +228,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
     if (exit_func) {
         *exit_func = crossld_exit_fun;
         exit_func->code = ctx->common_hunks + crossld_exit_offset;
-        printf("exit func: %zx code %zx\n", exit_func, exit_func->code);
+        DBG("exit func: %zx code %zx\n", exit_func, exit_func->code);
     }
 
     for (size_t i = 0; i < nfuncs; ++i) {
@@ -262,7 +263,7 @@ int crossld_enter(void *start, struct crossld_ctx *ctx) {
     }
     stack += stack_size - 4;
 
-    puts("jumping"); fflush(stdout);
+    DBG("jumping\n");
     return jump32(stack, start, ctx);
 }
 

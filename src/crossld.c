@@ -11,6 +11,7 @@
 
 #include "crossld.h"
 #include "trampolines.h"
+#include "debug.h"
 
 const size_t PAGE_SIZE = 4096;
 
@@ -26,7 +27,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
 
     size_t hunk_ptr = (size_t) trampolines[funidx];
 
-    printf("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, patch_ptr);
+    DBG("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, patch_ptr);
     *patch_ptr = (uint32_t) hunk_ptr;
 
     return crossld_enter(start, common_hunks);
@@ -51,7 +52,7 @@ static void unmapall(struct tounmap *vec) {
             perror("munmap");
             // keep going, unmap what we can
         } else {
-            puts("freed");
+            DBG("freed\n");
         }
     }
 }
@@ -69,7 +70,7 @@ static struct tounmap mmap_exact(void *addr, size_t length, int prot, int flags,
         return res;
     }
     if (actual_addr != addr) {
-        printf("ERROR: mmap moved us to %zx\n", actual_addr);
+        DBG("ERROR: mmap moved us to %zx\n", actual_addr);
         if (munmap(actual_addr, length) < 0) {
             perror("munmap");
         }
@@ -170,7 +171,7 @@ static void *load_elf(const int fd, void * const *trampolines,
     struct tounmap* map_next = map_vec;
 
     for (size_t i = 0; i < elfhdr.e_phnum; ++i) {
-        printf("hdr %zu\n", i);
+        DBG("hdr %zu\n", i);
         int prot = 0;
         Elf32_Phdr* hdr = &phdrs[i];
         switch (hdr->p_type) {
@@ -189,7 +190,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                                 "%u > %u\n", hdr->p_filesz, hdr->p_memsz);
                 return NULL;
             }
-            printf("LOAD %zx %zx %zx %zx %zu\n", hdr->p_vaddr, hdr->p_memsz,
+            DBG("LOAD %zx %zx %zx %zx %zu\n", hdr->p_vaddr, hdr->p_memsz,
                     hdr->p_offset, hdr->p_filesz, prot);
             size_t page_offset = hdr->p_vaddr & (PAGE_SIZE - 1);
             size_t vaddr = hdr->p_vaddr - page_offset;
@@ -197,7 +198,7 @@ static void *load_elf(const int fd, void * const *trampolines,
             size_t size = hdr->p_filesz + page_offset;
             size_t mapsize = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 
-            printf("mmap %zx %zx %zx %zx %zu\n", vaddr, mapsize,
+            DBG("mmap %zx %zx %zx %zx %zu\n", vaddr, mapsize,
                     offset, size, prot);
             *map_next = mmap_exact((void*) vaddr, size, prot,
                                     MAP_PRIVATE | MAP_32BIT, fd, offset);
@@ -208,7 +209,7 @@ static void *load_elf(const int fd, void * const *trampolines,
             ++map_next;
 
             if (hdr->p_filesz < hdr->p_memsz) {
-                printf("segment with trailing zeros:"
+                DBG("segment with trailing zeros:"
                        "%u < %u\n", hdr->p_filesz, hdr->p_memsz);
                 char* bss_start = addr + size;
                 char* bss_end = addr + page_offset + hdr->p_memsz;
@@ -223,7 +224,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                 }
                 char* anon_start = bss_start + bzero_size;
 
-                printf("bzero at %zx, size %zx, map anon from %zx, size %zx\n",
+                DBG("bzero at %zx, size %zx, map anon from %zx, size %zx\n",
                        bss_start, bzero_size, anon_start, anon_map_size);
 
                 bzero(bss_start, bzero_size);
@@ -278,7 +279,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                         break;
                 }
             }
-            printf("DYNAMIC str %zx sym %zx plt %zx size %zx\n",
+            DBG("DYNAMIC str %zx sym %zx plt %zx size %zx\n",
                     strtab, symtab, jmprel, pltrelsz);
 
             /*
@@ -288,7 +289,7 @@ static void *load_elf(const int fd, void * const *trampolines,
              */
 
             if (!strtab || !symtab || !jmprel || !pltrelsz) {
-                printf("nothing dynamic here, skipping\n");
+                DBG("nothing dynamic here, skipping\n");
                 break;
             }
 
@@ -318,7 +319,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                 }
                 uint32_t value = (uint32_t) (size_t) trampolines[funidx];
                 uint32_t* target = (uint32_t*) (uint64_t) rel->r_offset;
-                printf("writing symbol %s value %zx at %zx\n", symname, value, target);
+                DBG("writing symbol %s value %zx at %zx\n", symname, value, target);
                 *target = value;
             }
 
@@ -334,7 +335,7 @@ static void *load_elf(const int fd, void * const *trampolines,
     //TMPHACK
     //crossld_call64_in_fake_ptr_ptr = (uint32_t*) 0x0804b010UL;
 
-    printf("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
+    DBG("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
     *crossld_call64_in_fake_ptr_ptr = (uint32_t) hunk_ptr;
 #endif
 
