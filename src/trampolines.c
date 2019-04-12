@@ -10,8 +10,6 @@
 #include "wrapper.h"
 #include "debug.h"
 
-#define CROSSLD_EXIT
-
 struct crossld_ctx {
     void *old_stack;
     char *common_hunks;
@@ -182,7 +180,7 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
     return code;
 }
 
-#ifndef CROSSLD_EXIT
+#ifdef CROSSLD_NOEXIT
 _Noreturn void crossld_exit(int status) {
     exit(status);
 }
@@ -195,10 +193,10 @@ struct function crossld_exit_fun = {
     .args = exit_args,
     .nargs = 1,
     .result = TYPE_VOID,
-#ifdef CROSSLD_EXIT
-    .code = NULL,
-#else
+#ifdef CROSSLD_NOEXIT
     .code = crossld_exit,
+#else
+    .code = NULL,
 #endif
 };
 
@@ -227,7 +225,9 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
 
     if (exit_func) {
         *exit_func = crossld_exit_fun;
+#ifndef CROSSLD_NOEXIT
         exit_func->code = ctx->common_hunks + crossld_exit_offset;
+#endif
         DBG("exit func: %zx code %zx\n", exit_func, exit_func->code);
     }
 
@@ -269,11 +269,11 @@ int crossld_enter(void *start, struct crossld_ctx *ctx) {
 
 _Noreturn void crossld_panic(size_t retval, struct crossld_ctx *ctx) {
     fprintf(stderr, "PANIC: return value outside of range: %zx\n", retval);
-#ifdef CROSSLD_EXIT
+#ifdef CROSSLD_NOEXIT
+    abort();
+#else
     crossld_exit_t cexit =
             (crossld_exit_t )ctx->common_hunks + crossld_exit_offset;
     cexit(-1);
-#else
-    abort();
 #endif
 }
