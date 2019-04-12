@@ -8,6 +8,8 @@
 #include "crossld.h"
 #include "trampolines.h"
 
+#define CROSSLD_EXIT
+
 struct arg_hunk {
     unsigned char insn[7];
     unsigned char depth;
@@ -143,8 +145,6 @@ static void* write_trampoline(char **code_p, char *common_hunks,
     void** const           out_addr_field   = (void**)           (mid + crossld_call64_out_addr_mid_offset);
     void** const           out_hunk         = (void**)           (common_hunks + crossld_call64_out_offset);
 
-    //printf("putting %zx as dst address at %zx\n", funptr, dst_addr_field);
-    //*dst_addr_field = funptr;
     patch("dst address", dst_addr_field, funptr);
 
     switch (ret_to_mode(func->result)) {
@@ -162,18 +162,21 @@ static void* write_trampoline(char **code_p, char *common_hunks,
             break;
     }
 
-    //printf("putting %zx as panic address at %zx\n", crossld_panic, panic_addr_field);
-    //*panic_addr_field = crossld_panic;
     patch("panic address", panic_addr_field, crossld_panic);
 
-    //printf("putting %zx as out address at %zx\n", out_hunk, out_addr_field);
-    //*out_addr_field = out_hunk;
     patch("out address", out_addr_field, out_hunk);
 
+    // dump code
     //write(2, code, *code_p - code);
 
     return code;
 }
+
+#ifndef CROSSLD_EXIT
+_Noreturn void crossld_exit(int status) {
+    exit(status);
+}
+#endif
 
 static enum type exit_args[] = {TYPE_INT};
 
@@ -182,8 +185,11 @@ struct function crossld_exit_fun = {
     .args = exit_args,
     .nargs = 1,
     .result = TYPE_VOID,
+#ifdef CROSSLD_EXIT
     .code = NULL,
-//    .code = crossld_exit,
+#else
+    .code = crossld_exit,
+#endif
 };
 
 struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
@@ -253,18 +259,9 @@ int crossld_enter(void *start, struct crossld_ctx *ctx) {
 
 _Noreturn void crossld_panic(size_t retval) {
     fprintf(stderr, "PANIC: return value outside of range: %zx\n", retval);
-#if 1
-    abort();
-#else
+#ifdef CROSSLD_EXIT
     crossld_exit(-1);
-#endif
-}
-
-#if 0
-
-_Noreturn void crossld_exit(int status) {
-    exit(status);
-}
 #else
+    abort();
 #endif
-
+}

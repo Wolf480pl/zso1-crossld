@@ -11,8 +11,6 @@ void crossld_free_trampolines(struct crossld_ctx *common_hunks);
 
 int crossld_enter(void *start, struct crossld_ctx *common_hunks);
 
-//struct function crossld_exit_fun;
-
 struct crossld_ctx;
 
 #endif
