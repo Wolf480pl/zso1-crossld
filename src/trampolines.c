@@ -40,7 +40,8 @@ extern size_t crossld_call64_trampoline_len2;
 extern size_t crossld_call64_out_offset;
 extern size_t crossld_exit_offset;
 extern size_t crossld_exit_ctx_addr_offset;
-extern struct arg_hunk crossld_hunk_array[6][3];
+extern struct arg_hunk crossld_hunk_array[7][3];
+extern struct arg_hunk crossld_push_rax;
 extern struct ret_hunk crossld_check_u32;
 extern struct ret_hunk crossld_check_s32;
 extern struct ret_hunk crossld_pass_u64;
@@ -121,16 +122,51 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
 
     size_t depth = 8;
     for (size_t i = 0; i < func->nargs; ++i) {
-        enum arg_mode mode = arg_to_mode(func->args[i]);
-        if (i < 6) {
-            *argconv = crossld_hunk_array[i][mode];
-            argconv->depth = depth;
-            ++argconv;
-        } else {
-            //TODO
+        if (i >= 6) {
+            // need to pass by stack
+            break;
         }
+        enum arg_mode mode = arg_to_mode(func->args[i]);
+        *argconv = crossld_hunk_array[i][mode];
+        argconv->depth = depth;
+        ++argconv;
         depth += (mode == ARG_PASS64) ? 8 : 4;
     }
+
+    if (func->nargs > 6) {
+        // stack arguments
+
+        size_t maxdepth = depth;
+        for (size_t i = 6; i < func->nargs; ++i) {
+            enum arg_mode mode = arg_to_mode(func->args[i]);
+            maxdepth += (mode == ARG_PASS64) ? 8 : 4;
+        }
+        // trampoline_start gave us aligned stack
+        // make sure the stack will still be aligned after args
+        if (func->nargs % 2 == 1) {
+            // push rax as padding, we don't care what value it contains
+            *argconv = crossld_push_rax;
+            ++argconv;
+        }
+        // we need to push them in reverse order
+        depth = maxdepth;
+        for (ssize_t i = func->nargs - 1; i >= 6; --i) {
+            enum type argtype = func->args[i];
+            enum arg_mode mode = arg_to_mode(argtype);
+
+            depth -= (mode == ARG_PASS64) ? 8 : 4;
+
+            // put it in rax with zero/sign extension if needed
+            *argconv = crossld_hunk_array[6][mode];
+            argconv->depth = depth;
+            ++argconv;
+            // push rax
+            *argconv = crossld_push_rax;
+            // crossld_push_rax doesn't have a depth, so don't patch it
+            ++argconv;
+        }
+    }
+
     *code_p = (char*) argconv;
     printf("finished injection at %zx\n", *code_p);
 

@@ -13,6 +13,7 @@ global crossld_call64_trampoline_mid
 global crossld_call64_trampoline_len1
 global crossld_call64_trampoline_len2
 global crossld_hunk_array
+global crossld_push_rax
 global crossld_check_u32
 global crossld_check_s32
 global crossld_pass_u64
@@ -164,19 +165,20 @@ crossld_hunks_end:
 
 align 8
 crossld_check_u32:
+    nop
     mov edi, eax
     cmp rdi, rax
-    jnz short 2 + crossld_call64_panic_jump_offset
+    jnz short 1 + crossld_call64_panic_jump_offset
 
 crossld_check_s32:
     movsx rdi, eax
     cmp rdi, rax
-    jnz short 2 + crossld_call64_panic_jump_offset
+    jnz short 1 + crossld_call64_panic_jump_offset
 
 crossld_pass_u64:
     nop
-    shl rdx, 32
-    or rax, rdx
+    mov rdx, rax
+    shr rdx, 32
 
 align 4
 crossld_hunk_array:
@@ -234,11 +236,17 @@ crossld_load_r9:
 crossld_load_r9_signed:
     movsx r9, dword [rbp+0x55]
 
-crossld_push:
-    lea rdi, [esp-1]
-    mov cl, 42
-    sub rsp, rcx
-    lea rsi, [rbp+0x55]
-    std
-    rep movsb
+crossld_load_eax:
+    mov eax, [ebp+0x55]
 
+crossld_load_rax:
+    mov rax, [rbp+0x55]
+
+crossld_load_rax_signed:
+    movsxd rax, [rbp+0x55]
+
+crossld_push_rax:
+    push rax
+    nop
+    nop
+    nop
