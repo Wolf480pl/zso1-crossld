@@ -144,12 +144,14 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
 
     void* const funptr = func->code;
 
-    void** const           dst_addr_field   = (void**)           (mid + crossld_call64_dst_addr_mid_offset);
-    struct ret_hunk* const retconv_field    = (struct ret_hunk*) (mid + crossld_call64_retconv_mid_offset);
-    void** const           panic_addr_field = (void**)           (mid + crossld_call64_panic_addr_mid_offset);
-    void** const           panic_ctx_addr_field = (void**)           (mid + crossld_call64_panic_ctx_addr_mid_offset);
-    void** const           out_addr_field   = (void**)           (mid + crossld_call64_out_addr_mid_offset);
-    void** const           out_hunk         = (void**)           (ctx->common_hunks + crossld_call64_out_offset);
+    struct ret_hunk* const retconv_field = (struct ret_hunk*) (mid + crossld_call64_retconv_mid_offset);
+
+    void** const dst_addr_field =       (void**) (mid + crossld_call64_dst_addr_mid_offset);
+    void** const panic_addr_field =     (void**) (mid + crossld_call64_panic_addr_mid_offset);
+    void** const panic_ctx_addr_field = (void**) (mid + crossld_call64_panic_ctx_addr_mid_offset);
+    void** const out_addr_field =       (void**) (mid + crossld_call64_out_addr_mid_offset);
+
+    void** const out_hunk = (void**) (ctx->common_hunks + crossld_call64_out_offset);
 
     patch("dst address", dst_addr_field, funptr);
 
@@ -174,8 +176,9 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
 
     patch("out address", out_addr_field, out_hunk);
 
-    // dump code
-    //write(2, code, *code_p - code);
+#ifdef CROSSLD_DUMP_FD
+    write(CROSSLD_DUMP_FD, code, *code_p - code);
+#endif
 
     return code;
 }
