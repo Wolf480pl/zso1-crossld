@@ -1,7 +1,10 @@
 CFLAGS ?= -O3 -g
 GCC_OPTS := $(CFLAGS) -fPIC -fvisibility=hidden
 
-all: libcrossld.so libcrossld.o libcrossld.fake.so libcrossld.fake.o crossld.h
+TARGETS_MAIN := libcrossld.so crossld.h
+TARGETS_DEBUG := libcrossld.o libcrossld.fake.so libcrossld.fake.o
+
+all: $(TARGETS_MAIN) $(TARGETS_DEBUG)
 
 .PHONY: all clean
 
@@ -12,7 +15,7 @@ trampolines.o: trampolines.c crossld.h trampolines.h wrapper.h
 crossld.o: crossld.c crossld.h trampolines.h
 
 crossld.fake.o: crossld.c crossld.h trampolines.h
-	gcc $(GCC_OPTS) -DFAKE -c -o $@ $<
+	gcc $(GCC_OPTS) -DCROSSLD_FAKE -c -o $@ $<
 
 wrapper.o: wrapper.asm
 	nasm -f elf64 -o $@ $<

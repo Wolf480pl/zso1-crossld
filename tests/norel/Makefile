@@ -2,9 +2,9 @@ CFLAGS ?= -O3
 
 INCLUDEDIR := ../../include
 LIBDIR := ../../src
-LIBCROSSLD := $(LIBDIR)/libcrossld.so
+LIBCROSSLD := $(LIBDIR)/libcrossld.fake.so
 LIBCROSSLD_FAKE := $(LIBDIR)/libcrossld.fake.so
-STATICCROSSLD := ../../src/libcrossld.o
+STATICCROSSLD := ../../src/libcrossld.fake.o
 STATICCROSSLD_FAKE := ../../src/libcrossld.fake.o
 
 TESTS := noload norel noload_so norel_so

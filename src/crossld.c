@@ -15,6 +15,7 @@
 
 const size_t PAGE_SIZE = 4096;
 
+#ifdef CROSSLD_FAKE
 __attribute__((visibility("default")))
 int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
                       uint32_t *patch_ptr, size_t funidx) {
@@ -32,6 +33,7 @@ int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
 
     return crossld_enter(start, common_hunks);
 }
+#endif
 
 struct tounmap {
     void *addr;
@@ -111,8 +113,6 @@ const char valid_elf_ident[EI_NIDENT] = {
     ELFCLASS32,
     ELFDATA2LSB,
     EV_CURRENT,
-//    ELFOSABI_SYSV,
-//    0, // ABI version
 };
 
 static void *load_elf(const int fd, void * const *trampolines,
@@ -160,7 +160,7 @@ static void *load_elf(const int fd, void * const *trampolines,
         return NULL;
     }
 
-#ifdef FAKE
+#ifdef CROSSLD_FAKE
     uint32_t* crossld_call64_in_fake_ptr_ptr;
 #endif
 
@@ -237,7 +237,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                     ++map_next;
                 }
             }
-#ifdef FAKE
+#ifdef CROSSLD_FAKE
             //TMPHACK
             crossld_call64_in_fake_ptr_ptr = addr + page_offset;
 #endif
@@ -294,7 +294,6 @@ static void *load_elf(const int fd, void * const *trampolines,
             }
 
             Elf32_Rel* rels = jmprel;
-            //size_t relcnt = pltrelsz / sizeof(Elf32_Rel);
 
             for (Elf32_Rel* rel = rels; rel < rels + pltrelsz; ++rel) {
                 if (ELF32_R_TYPE(rel->r_info) == R_386_NONE) {
@@ -329,11 +328,9 @@ static void *load_elf(const int fd, void * const *trampolines,
 
     uint32_t entrypoint = elfhdr.e_entry;
 
-#ifdef FAKE
-    size_t hunk_ptr = (size_t) trampolines[1];
-
+#ifdef CROSSLD_FAKE
     //TMPHACK
-    //crossld_call64_in_fake_ptr_ptr = (uint32_t*) 0x0804b010UL;
+    size_t hunk_ptr = (size_t) trampolines[1];
 
     DBG("putting: %x as trampoline ptr at %zx\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
     *crossld_call64_in_fake_ptr_ptr = (uint32_t) hunk_ptr;

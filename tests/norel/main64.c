@@ -2,12 +2,6 @@
 #include <stdio.h>
 #include "crossld.h"
 
-extern void test32();
-
-extern int crossld_start_fun(void *start, const struct function *funcs, int nfuncs);
-
-static const size_t stack_size = 4096;
-
 int myfun(int x) {
     printf("i have %d\n", x);
     fflush(stdout);
