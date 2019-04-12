@@ -1,6 +1,7 @@
 global crossld_call64_dst_addr_mid_offset
 global crossld_call64_retconv_mid_offset
 global crossld_call64_panic_addr_mid_offset
+global crossld_call64_panic_ctx_addr_mid_offset
 global crossld_call64_out_addr_mid_offset
 global crossld_call64_out_offset
 ;global crossld_jump32
@@ -34,6 +35,8 @@ crossld_call64_retconv_mid_offset:
     dq crossld_call64_retconv - crossld_call64_trampoline_mid
 crossld_call64_panic_addr_mid_offset:
     dq crossld_call64_panic_mov + 2 - crossld_call64_trampoline_mid
+crossld_call64_panic_ctx_addr_mid_offset:
+    dq crossld_call64_panic_ctx_mov + 2 - crossld_call64_trampoline_mid
 crossld_call64_out_addr_mid_offset:
     dq crossld_call64_out_mov + 2 - crossld_call64_trampoline_mid
 crossld_call64_out_offset:
@@ -99,7 +102,9 @@ crossld_call64_out_mov:
 crossld_call64_panic:
     mov rdi, rax
 crossld_call64_panic_mov:
-    mov rax, dummy ; exit goes here
+    mov rax, dummy ; panic goes here
+crossld_call64_panic_ctx_mov:
+    mov rsi, dummy ; panic ctx goes here
     call rax
 
 crossld_call64_panic_jump_offset: equ crossld_call64_panic - crossld_call64_nopanic

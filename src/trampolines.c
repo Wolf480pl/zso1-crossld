@@ -32,6 +32,7 @@ extern size_t crossld_jump32_offset;
 extern size_t crossld_call64_dst_addr_mid_offset;
 extern size_t crossld_call64_retconv_mid_offset;
 extern size_t crossld_call64_panic_addr_mid_offset;
+extern size_t crossld_call64_panic_ctx_addr_mid_offset;
 extern size_t crossld_call64_out_addr_mid_offset;
 extern size_t crossld_hunks_len;
 extern size_t crossld_call64_trampoline_len1;
@@ -45,6 +46,8 @@ extern struct ret_hunk crossld_check_s32;
 extern struct ret_hunk crossld_pass_u64;
 
 typedef int (*crossld_jump32_t)(void *stack, void *func, struct crossld_ctx *ctx);
+// GCC doesn't like _Noreturn here, so we use attribute...
+typedef __attribute__((__noreturn__)) void (*crossld_exit_t)(int status);
 
 static const size_t stack_size = 4096 * 1024; // 4 MiB
 static const size_t code_size = 4096;
@@ -104,9 +107,9 @@ static void patch(char *desc, void** const field, void *value) {
     *field = value;
 }
 
-_Noreturn void crossld_panic(size_t retval);
+_Noreturn void crossld_panic(size_t retval, struct crossld_ctx *ctx);
 
-static void* write_trampoline(char **code_p, char *common_hunks,
+static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
                               const struct function *func) {
     char* const code = *code_p;
 
@@ -142,8 +145,9 @@ static void* write_trampoline(char **code_p, char *common_hunks,
     void** const           dst_addr_field   = (void**)           (mid + crossld_call64_dst_addr_mid_offset);
     struct ret_hunk* const retconv_field    = (struct ret_hunk*) (mid + crossld_call64_retconv_mid_offset);
     void** const           panic_addr_field = (void**)           (mid + crossld_call64_panic_addr_mid_offset);
+    void** const           panic_ctx_addr_field = (void**)           (mid + crossld_call64_panic_ctx_addr_mid_offset);
     void** const           out_addr_field   = (void**)           (mid + crossld_call64_out_addr_mid_offset);
-    void** const           out_hunk         = (void**)           (common_hunks + crossld_call64_out_offset);
+    void** const           out_hunk         = (void**)           (ctx->common_hunks + crossld_call64_out_offset);
 
     patch("dst address", dst_addr_field, funptr);
 
@@ -163,6 +167,8 @@ static void* write_trampoline(char **code_p, char *common_hunks,
     }
 
     patch("panic address", panic_addr_field, crossld_panic);
+
+    patch("panic ctx", panic_ctx_addr_field, ctx);
 
     patch("out address", out_addr_field, out_hunk);
 
@@ -222,7 +228,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
     }
 
     for (size_t i = 0; i < nfuncs; ++i) {
-        res_trampolines[i] = write_trampoline(&code, ctx->common_hunks, &funcs[i]);
+        res_trampolines[i] = write_trampoline(&code, ctx, &funcs[i]);
     }
 
     if (mprotect(ctx->code_start, code_size, PROT_READ|PROT_EXEC) < 0) {
@@ -257,10 +263,12 @@ int crossld_enter(void *start, struct crossld_ctx *ctx) {
     return jump32(stack, start, ctx);
 }
 
-_Noreturn void crossld_panic(size_t retval) {
+_Noreturn void crossld_panic(size_t retval, struct crossld_ctx *ctx) {
     fprintf(stderr, "PANIC: return value outside of range: %zx\n", retval);
 #ifdef CROSSLD_EXIT
-    crossld_exit(-1);
+    crossld_exit_t cexit =
+            (crossld_exit_t )ctx->common_hunks + crossld_exit_offset;
+    cexit(-1);
 #else
     abort();
 #endif
