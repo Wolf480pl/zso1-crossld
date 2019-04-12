@@ -165,13 +165,13 @@ crossld_hunks_end:
 align 8
 crossld_check_u32:
     mov edi, eax
-    test rdi, rax
-    jnz short 1 + crossld_call64_panic_jump_offset
+    cmp rdi, rax
+    jnz short 2 + crossld_call64_panic_jump_offset
 
 crossld_check_s32:
     movsx rdi, eax
-    test rdi, rax
-    jnz short 1 + crossld_call64_panic_jump_offset
+    cmp rdi, rax
+    jnz short 2 + crossld_call64_panic_jump_offset
 
 crossld_pass_u64:
     nop
