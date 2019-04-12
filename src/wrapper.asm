@@ -178,119 +178,61 @@ crossld_pass_u64:
     shl rdx, 32
     or rax, rdx
 
-align 8
+align 4
 crossld_hunk_array:
 crossld_load_edi:
-    nop
-    nop
-    nop
-    nop
     mov edi, [ebp+0x55]
 
 crossld_load_rdi:
-    nop
-    nop
-    nop
-    mov rdi, [ebp+0x55]
+    mov rdi, [rbp+0x55]
 
 crossld_load_rdi_signed:
-    nop
-    nop
-    nop
-    movsx rdi, dword [ebp+0x55]
+    movsx rdi, dword [rbp+0x55]
 
 crossld_load_esi:
-    nop
-    nop
-    nop
-    nop
     mov esi, [ebp+0x55]
 
 crossld_load_rsi:
-    nop
-    nop
-    nop
-    mov rsi, [ebp+0x55]
+    mov rsi, [rbp+0x55]
 
 crossld_load_rsi_signed:
-    nop
-    nop
-    nop
-    movsx rsi, dword [ebp+0x55]
+    movsx rsi, dword [rbp+0x55]
 
 crossld_load_edx:
-    nop
-    nop
-    nop
-    nop
     mov edx, [ebp+0x55]
 
 crossld_load_rdx:
-    nop
-    nop
-    nop
-    mov rdx, [ebp+0x55]
+    mov rdx, [rbp+0x55]
 
 crossld_load_rdx_signed:
-    nop
-    nop
-    nop
-    movsx rdx, dword [ebp+0x55]
+    movsx rdx, dword [rbp+0x55]
 
 crossld_load_ecx:
-    nop
-    nop
-    nop
-    nop
     mov ecx, [ebp+0x55]
 
 crossld_load_rcx:
-    nop
-    nop
-    nop
-    mov rcx, [ebp+0x55]
+    mov rcx, [rbp+0x55]
 
 crossld_load_rcx_signed:
-    nop
-    nop
-    nop
-    movsx rcx, dword [ebp+0x55]
+    movsx rcx, dword [rbp+0x55]
 
 crossld_load_r8d:
-    nop
-    nop
-    nop
-    mov r8d, [ebp+0x55]
+    mov r8d, [rbp+0x55]
 
 crossld_load_r8:
-    nop
-    nop
-    nop
-    mov r8,  [ebp+0x55]
+    mov r8,  [rbp+0x55]
 
 crossld_load_r8_signed:
-    nop
-    nop
-    nop
-    movsx r8, dword [ebp+0x55]
+    movsx r8, dword [rbp+0x55]
 
 crossld_load_r9d:
-    nop
-    nop
-    nop
-    mov r9d, [ebp+0x55]
+    mov r9d, [rbp+0x55]
 
 crossld_load_r9:
-    nop
-    nop
-    nop
-    mov r9,  [ebp+0x55]
+    mov r9,  [rbp+0x55]
 
 crossld_load_r9_signed:
-    nop
-    nop
-    nop
-    movsx r9, dword [ebp+0x55]
+    movsx r9, dword [rbp+0x55]
 
 crossld_push:
     lea rdi, [esp-1]

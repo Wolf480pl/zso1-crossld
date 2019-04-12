@@ -11,7 +11,7 @@
 #define CROSSLD_EXIT
 
 struct arg_hunk {
-    unsigned char insn[7];
+    unsigned char insn[3];
     unsigned char depth;
 };
 
