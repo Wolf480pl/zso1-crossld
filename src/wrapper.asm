@@ -23,6 +23,8 @@ section .rodata
 dummy:
     db 0
 
+; ----- global constants holding offsets and lengths of things in this file
+
 align 8
 crossld_call64_trampoline_len1:
     dq crossld_call64_trampoline_mid - crossld_call64_trampoline_start
@@ -56,7 +58,11 @@ crossld_exit_ctx_addr_offset:
 
 section .text
 
+; ----- the function wrapper trampoline (will be copied a lot)
+
 [bits 32]
+; start of the function wrapper trampoline
+
 crossld_call64_trampoline:
 crossld_call64_trampoline_start:
     push ebp
@@ -75,6 +81,9 @@ crossld_call64_trampoline_start:
 
 [bits 64]
 
+; argument conversions get injected here
+
+; tail of the function wrapper trampoline
 align 8
 crossld_call64_trampoline_mid:
 crossld_call64_mid:
@@ -112,8 +121,13 @@ crossld_call64_panic_jump_offset: equ crossld_call64_panic - crossld_call64_nopa
 align 8
 crossld_call64_trampoline_end:
 
+
+; ----- shared pieces of code (will be copied once)
+
 [bits 32]
 crossld_hunks:
+
+; shared epilogue to which 64-bit trampoline code far-returns
 crossld_call64_out:
     sub ebp,12
     mov esp, ebp
@@ -123,6 +137,7 @@ crossld_call64_out:
     pop ebp
     ret
 
+; these two switch us to the crossld stack
 crossld_jump32_out:
     push 0x2b
     pop ds
@@ -146,6 +161,8 @@ crossld_jump32:
     mov [rsp], eax
     retf
 
+; this gets us back to the normal stack
+; (it's called as a wrapped 64-bit function)
 crossld_do_exit:
     mov rax, rdi ; exit code
 crossld_exit_ctx_mov:
@@ -161,6 +178,13 @@ crossld_exit_ctx_mov:
 
 align 8
 crossld_hunks_end:
+
+; ----- a toolbox of hunks that will get copied and concatenated
+;       in various ways, dependent on what needs to be done
+
+; 8-byte hunks for return value conversion
+; they get copied into the nop sled in the 64-bit part of trampoline 
+; and expect some panic code at a certain offset after their end
 
 align 8
 crossld_check_u32:
@@ -178,6 +202,12 @@ crossld_pass_u64:
     nop
     mov rdx, rax
     shr rdx, 32
+
+; An array of 4-byte arg conversion hunks
+; that get inserted in the middle of the trampoline.
+; See wrapper.h for the structure of the array.
+; The 4th byte of each element needs to be rbp-relative depth on the stack
+; and will be overwriten.
 
 align 4
 crossld_hunk_array:
@@ -245,6 +275,8 @@ crossld_hunk_array:
     movsxd rax, [rbp+0x55]
 
 .end
+
+; a 4-byte hunk for pushing rax, also copied into the arg conversion part
 
 crossld_push_rax:
     push rax

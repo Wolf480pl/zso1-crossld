@@ -10,9 +10,16 @@ struct ret_hunk {
     unsigned char insn[8];
 };
 
+enum arg_mode {
+    ARG_PASS32 = 0,
+    ARG_PASS64 = 1,
+    ARG_SIGN32 = 2,
+};
+
 extern char crossld_hunks;
 extern char crossld_call64_trampoline_start;
 extern char crossld_call64_trampoline_mid;
+
 extern size_t crossld_jump32_offset;
 extern size_t crossld_call64_dst_addr_mid_offset;
 extern size_t crossld_call64_retconv_mid_offset;
@@ -25,8 +32,14 @@ extern size_t crossld_call64_trampoline_len2;
 extern size_t crossld_call64_out_offset;
 extern size_t crossld_exit_offset;
 extern size_t crossld_exit_ctx_addr_offset;
+
+// The first index is the number of argument (rdi, rsi, ...)
+// or 6 if we want to put the result in rax.
+// The second index is arg_mode
 extern struct arg_hunk crossld_hunk_array[7][3];
+
 extern struct arg_hunk crossld_push_rax;
+
 extern struct ret_hunk crossld_check_u32;
 extern struct ret_hunk crossld_check_s32;
 extern struct ret_hunk crossld_pass_u64;

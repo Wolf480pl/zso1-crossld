@@ -19,12 +19,6 @@ struct crossld_ctx {
 
 static const size_t stack_size = 4096 * 1024; // 4 MiB
 
-enum arg_mode {
-    ARG_PASS32 = 0,
-    ARG_PASS64 = 1,
-    ARG_SIGN32 = 2,
-};
-
 enum ret_mode {
     RET_PASS32,
     RET_PASS64,
