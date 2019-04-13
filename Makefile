@@ -3,7 +3,7 @@ export CFLAGS
 
 DIRS := include pkg
 INCLUDES := crossld.h
-LIBS := libcrossld.so libcrossld.o libcrossld.fake.so libcrossld.fake.o
+LIBS := libcrossld.so
 PKGNAME := wd371280
 PKGDIR := pkg/$(PKGNAME)
 

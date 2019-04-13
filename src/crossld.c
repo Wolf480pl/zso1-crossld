@@ -15,26 +15,6 @@
 
 const size_t PAGE_SIZE = 4096;
 
-#ifdef CROSSLD_FAKE
-__attribute__((visibility("default")))
-int crossld_start_fun(char *start, const struct function *funcs, int nfuncs,
-                      uint32_t *patch_ptr, size_t funidx) {
-    void* trampolines[nfuncs];
-
-    void* common_hunks = crossld_generate_trampolines(trampolines, funcs, nfuncs, NULL);
-    if (common_hunks == NULL) {
-        return -1;
-    }
-
-    size_t hunk_ptr = (size_t) trampolines[funidx];
-
-    DBG("putting: %x as trampoline ptr at %p\n", (uint32_t) hunk_ptr, patch_ptr);
-    *patch_ptr = (uint32_t) hunk_ptr;
-
-    return crossld_enter(start, common_hunks);
-}
-#endif
-
 struct tounmap {
     void *addr;
     size_t len;
@@ -160,10 +140,6 @@ static void *load_elf(const int fd, void * const *trampolines,
         return NULL;
     }
 
-#ifdef CROSSLD_FAKE
-    uint32_t* crossld_call64_in_fake_ptr_ptr = NULL;
-#endif
-
     // if each header is LOAD, and each has a BSS, we'll use 2*e_phnum mappings
     // plus one for null terminator
     struct tounmap* map_vec = calloc(elfhdr.e_phnum * 2 + 1, sizeof(struct tounmap));
@@ -237,10 +213,6 @@ static void *load_elf(const int fd, void * const *trampolines,
                     ++map_next;
                 }
             }
-#ifdef CROSSLD_FAKE
-            //TMPHACK
-            crossld_call64_in_fake_ptr_ptr = (void*) (addr + page_offset);
-#endif
             break;
 
         case PT_DYNAMIC: {
@@ -327,16 +299,6 @@ static void *load_elf(const int fd, void * const *trampolines,
     }
 
     uint32_t entrypoint = elfhdr.e_entry;
-
-#ifdef CROSSLD_FAKE
-    //TMPHACK
-    if (crossld_call64_in_fake_ptr_ptr) {
-        size_t hunk_ptr = (size_t) trampolines[1];
-
-        DBG("putting: %x as trampoline ptr at %p\n", (uint32_t) hunk_ptr, crossld_call64_in_fake_ptr_ptr);
-        *crossld_call64_in_fake_ptr_ptr = (uint32_t) hunk_ptr;
-    }
-#endif
 
     return (void*) (uint64_t) entrypoint;
 }
