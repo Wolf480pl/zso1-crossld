@@ -1,3 +1,6 @@
+#ifndef WRAPPER_H
+#define WRAPPER_H
+
 struct arg_hunk {
     unsigned char insn[3];
     unsigned char depth;
@@ -32,3 +35,4 @@ typedef int (*crossld_jump32_t)(void *stack, void *func, struct crossld_ctx *ctx
 // GCC doesn't like _Noreturn here, so we use attribute...
 typedef __attribute__((__noreturn__)) void (*crossld_exit_t)(int status);
 
+#endif /* WRAPPER_H */

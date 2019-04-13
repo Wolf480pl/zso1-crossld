@@ -11,10 +11,10 @@ all: $(TARGETS_MAIN) $(TARGETS_DEBUG)
 %.o: %.c
 	gcc $(GCC_OPTS) -c -o $@ $<
 
-trampolines.o: trampolines.c crossld.h trampolines.h wrapper.h
-crossld.o: crossld.c crossld.h trampolines.h
+trampolines.o: trampolines.c crossld.h trampolines.h wrapper.h debug.h
+crossld.o: crossld.c crossld.h trampolines.h debug.h
 
-crossld.fake.o: crossld.c crossld.h trampolines.h
+crossld.fake.o: crossld.c crossld.h trampolines.h debug.h
 	gcc $(GCC_OPTS) -DCROSSLD_FAKE -c -o $@ $<
 
 wrapper.o: wrapper.asm
