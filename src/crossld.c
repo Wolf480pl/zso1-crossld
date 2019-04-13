@@ -306,7 +306,7 @@ static void *load_elf(const int fd, void * const *trampolines,
                 }
                 Elf32_Sym* sym = &symtab[ELF32_R_SYM(rel->r_info)];
                 char* symname = &strtab[sym->st_name];
-                size_t funidx;
+                int funidx;
                 for (funidx = 0; funidx < nfuncs; ++funidx) {
                     if (!strcmp(symname, funcs[funidx].name)) {
                         break;

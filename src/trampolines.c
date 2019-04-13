@@ -106,7 +106,7 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
     struct arg_hunk* argconv = (struct arg_hunk*) *code_p;
 
     size_t depth = 8;
-    for (size_t i = 0; i < func->nargs; ++i) {
+    for (int i = 0; i < func->nargs; ++i) {
         if (i >= 6) {
             // need to pass by stack
             break;
@@ -122,7 +122,7 @@ static void* write_trampoline(char **code_p, struct crossld_ctx *ctx,
         // stack arguments
 
         size_t maxdepth = depth;
-        for (size_t i = 6; i < func->nargs; ++i) {
+        for (int i = 6; i < func->nargs; ++i) {
             enum arg_mode mode = arg_to_mode(func->args[i]);
             maxdepth += (mode == ARG_PASS64) ? 8 : 4;
         }
@@ -234,7 +234,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
     }
 
     size_t code_size = crossld_hunks_len;
-    for (size_t i = 0; i < nfuncs; ++i) {
+    for (int i = 0; i < nfuncs; ++i) {
         code_size += trampoline_max_size(&funcs[i]);
     }
 
@@ -264,7 +264,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
         DBG("exit func: %p code %p\n", exit_func, exit_func->code);
     }
 
-    for (size_t i = 0; i < nfuncs; ++i) {
+    for (int i = 0; i < nfuncs; ++i) {
         res_trampolines[i] = write_trampoline(&code, ctx, &funcs[i]);
     }
 
