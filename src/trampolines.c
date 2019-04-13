@@ -228,6 +228,11 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
 
     struct crossld_ctx* ctx = malloc(sizeof(struct crossld_ctx));
 
+    if (exit_func) {
+        // we need to do this for size calculation, as it WILL alias funcs array
+        *exit_func = crossld_exit_fun;
+    }
+
     size_t code_size = crossld_hunks_len;
     for (size_t i = 0; i < nfuncs; ++i) {
         code_size += trampoline_max_size(&funcs[i]);
@@ -253,7 +258,6 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
     patch("ctx address", crossld_exit_ctx_addr_field, ctx);
 
     if (exit_func) {
-        *exit_func = crossld_exit_fun;
 #ifndef CROSSLD_NOEXIT
         exit_func->code = ctx->common_hunks + crossld_exit_offset;
 #endif
@@ -280,7 +284,7 @@ void crossld_free_trampolines(struct crossld_ctx *ctx) {
 }
 
 int crossld_enter(void *start, struct crossld_ctx *ctx) {
-    char *stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE,
+    char* stack = mmap(NULL, stack_size, PROT_READ|PROT_WRITE,
                        MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
 
     crossld_jump32_t jump32 =
@@ -290,10 +294,14 @@ int crossld_enter(void *start, struct crossld_ctx *ctx) {
         perror("mmap");
         return -1;
     }
-    stack += stack_size - 4;
+    void* stack_top = stack + stack_size - 4;
 
     DBG("jumping\n");
-    return jump32(stack, start, ctx);
+    int res = jump32(stack_top, start, ctx);
+    if (munmap(stack, stack_size) < 0) {
+        perror("munmap");
+    }
+    return res;
 }
 
 _Noreturn void crossld_panic(size_t retval, struct crossld_ctx *ctx) {
