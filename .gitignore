@@ -3,3 +3,4 @@
 *.so
 peda-session-*.txt
 include/
+pkg/
