@@ -200,7 +200,7 @@ static void *load_elf(const int fd, void * const *trampolines,
 
             DBG("mmap %zx %zx %zx %zx %d\n", vaddr, mapsize,
                     offset, size, prot);
-            *map_next = mmap_exact((void*) vaddr, size, prot,
+            *map_next = mmap_exact((void*) vaddr, mapsize, prot,
                                     MAP_PRIVATE | MAP_32BIT, fd, offset);
             char *addr = map_next->addr;
             if (addr == MAP_FAILED) {
