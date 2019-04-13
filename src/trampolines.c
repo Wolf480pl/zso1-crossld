@@ -11,7 +11,7 @@
 #include "debug.h"
 
 struct crossld_ctx {
-    void *old_stack;
+    void *old_stack; // offset of this element is known to crossld_do_exit
     char *common_hunks;
     void *code_start;
     size_t code_size;
@@ -276,6 +276,7 @@ void crossld_free_trampolines(struct crossld_ctx *ctx) {
     if (munmap(ctx->code_start, ctx->code_size) < 0) {
         perror("munmap");
     }
+    free(ctx);
 }
 
 int crossld_enter(void *start, struct crossld_ctx *ctx) {
