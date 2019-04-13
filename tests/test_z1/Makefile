@@ -1,5 +1,5 @@
 TESTS_COMMON := memsz multiargs multicall stacksize stackalign multifuns
-TESTS_GENERIC := exit missing-sym long-ptr mprotect mprotect2 cleanup
+TESTS_GENERIC := exit missing-sym long-ptr mprotect mprotect2 cleanup long-unsign long-signed
 TESTS := $(TESTS_COMMON) $(TESTS_GENERIC)
 CROSSLD := ../../src/libcrossld.so
 CFLAGS := -O3
