@@ -14,10 +14,10 @@ struct crossld_ctx {
     void *old_stack;
     char *common_hunks;
     void *code_start;
+    size_t code_size;
 };
 
 static const size_t stack_size = 4096 * 1024; // 4 MiB
-static const size_t code_size = 4096;
 
 enum arg_mode {
     ARG_PASS32 = 0,
@@ -73,6 +73,24 @@ static void* trampoline_cat(char **code_p, const void *src, size_t len) {
 static void patch(char *desc, void** const field, void *value) {
     DBG("putting %p as %s at %p\n", value, desc, field);
     *field = value;
+}
+
+static size_t trampoline_max_size(const struct function *func) {
+    size_t size = 0;
+    size += crossld_call64_trampoline_len1;
+
+    size_t regargs = func->nargs;
+    size_t stackargs = 0;
+    if (regargs > 6) {
+        regargs = 6;
+        stackargs = func->nargs - 6;
+    }
+    size += regargs * sizeof(struct arg_hunk);
+    size += sizeof(struct arg_hunk); // maybe push rax for stack alignment
+    size += stackargs * 2 * sizeof(struct arg_hunk); // 2 hunks per stack arg
+
+    size += crossld_call64_trampoline_len2;
+    return size;
 }
 
 _Noreturn void crossld_panic(size_t retval, struct crossld_ctx *ctx);
@@ -209,6 +227,12 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
                                   struct function *exit_func) {
 
     struct crossld_ctx* ctx = malloc(sizeof(struct crossld_ctx));
+
+    size_t code_size = crossld_hunks_len;
+    for (size_t i = 0; i < nfuncs; ++i) {
+        code_size += trampoline_max_size(&funcs[i]);
+    }
+
     char *code = mmap(NULL, code_size, PROT_READ|PROT_WRITE,
                       MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT, -1, 0);
     if (code == MAP_FAILED) {
@@ -216,6 +240,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
         return NULL;
     }
     ctx->code_start = code;
+    ctx->code_size = code_size;
 
     ctx->common_hunks = trampoline_cat(&code, &crossld_hunks, crossld_hunks_len);
 
@@ -248,8 +273,7 @@ struct crossld_ctx* crossld_generate_trampolines(void **res_trampolines,
 }
 
 void crossld_free_trampolines(struct crossld_ctx *ctx) {
-    void *code_start = ctx->code_start;
-    if (munmap(code_start, code_size) < 0) {
+    if (munmap(ctx->code_start, ctx->code_size) < 0) {
         perror("munmap");
     }
 }
